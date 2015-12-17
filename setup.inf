@@ -1,0 +1,34 @@
+[General]
+FullMachineName = localhost.localdomain
+ServerRoot = /opt/dirsrv/lib/dirsrv
+SuiteSpotGroup = dirsrv
+SuiteSpotUserID = dirsrv
+StrictHostCheck = false
+[slapd]
+AddOrgEntries = Yes
+AddSampleEntries = No
+HashedRootDNPwd = {SSHA512}vDw/hx3ZWIujH02wbl5IY6D2IgZXMzdEk/RUokytzNEr02JzdM/AGY8oHXSjTXM4/veeikiIaqeQAZwxKQ94EX5WkjtT3l/y
+InstallLdifFile = suggest
+RootDN = cn=Directory Manager
+RootDNPwd = password
+ServerIdentifier = localhost
+ServerPort = 389
+Suffix = dc=example,dc=com
+bak_dir = /opt/dirsrv/var/lib/dirsrv/slapd-localhost/bak
+bindir = /opt/dirsrv/bin
+cert_dir = /opt/dirsrv/etc/dirsrv/slapd-localhost
+config_dir = /opt/dirsrv/etc/dirsrv/slapd-localhost
+datadir = /opt/dirsrv/share
+db_dir = /opt/dirsrv/var/lib/dirsrv/slapd-localhost/db
+ds_bename = userRoot
+inst_dir = /opt/dirsrv/lib/dirsrv/slapd-localhost
+ldif_dir = /opt/dirsrv/var/lib/dirsrv/slapd-localhost/ldif
+localstatedir = /opt/dirsrv/var
+lock_dir = /opt/dirsrv/var/lock/dirsrv/slapd-localhost
+log_dir = /opt/dirsrv/var/log/dirsrv/slapd-localhost
+naming_value = example
+run_dir = /opt/dirsrv/var/run/dirsrv
+sbindir = /opt/dirsrv/sbin
+schema_dir = /opt/dirsrv/etc/dirsrv/slapd-localhost/schema
+sysconfdir = /opt/dirsrv/etc
+tmp_dir = /tmp

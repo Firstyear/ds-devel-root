@@ -1,0 +1,35 @@
+
+[General]
+FullMachineName = localhost.localdomain
+ServerRoot = /lib/dirsrv
+SuiteSpotGroup = nobody
+SuiteSpotUserID = nobody
+[slapd]
+AddOrgEntries = Yes
+AddSampleEntries = No
+HashedRootDNPwd = {SSHA512}vDw/hx3ZWIujH02wbl5IY6D2IgZXMzdEk/RUokytzNEr02JzdM/AGY8oHXSjTXM4/veeikiIaqeQAZwxKQ94EX5WkjtT3l/y
+InstallLdifFile = suggest
+RootDN = cn=Directory Manager
+RootDNPwd = password
+ServerIdentifier = localhost
+ServerPort = 389
+Suffix = dc=example,dc=com
+bak_dir = /var/lib/dirsrv/slapd-localhost/bak
+bindir = /bin
+cert_dir = /etc/dirsrv/slapd-localhost
+config_dir = /etc/dirsrv/slapd-localhost
+datadir = /share
+db_dir = /var/lib/dirsrv/slapd-localhost/db
+ds_bename = userRoot
+inst_dir = /lib/dirsrv/slapd-localhost
+ldif_dir = /var/lib/dirsrv/slapd-localhost/ldif
+localstatedir = /var
+lock_dir = /var/lock/dirsrv/slapd-localhost
+log_dir = /var/log/dirsrv/slapd-localhost
+naming_value = example
+run_dir = /var/run/dirsrv
+sbindir = /sbin
+schema_dir = /etc/dirsrv/slapd-localhost/schema
+sysconfdir = /etc
+tmp_dir = /tmp
+
