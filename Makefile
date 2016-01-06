@@ -1,6 +1,8 @@
 .PHONY: ds-setup lib389 rest389
 
 DEVDIR ?= $(shell pwd)
+LIB389_VERS ?= $(shell cat ./lib389/VERSION | head -n 1)
+REST389_VERS ?= $(shell cat ./rest389/VERSION | head -n 1)
 
 all:
 	echo "make ds|nunc-stans|lib389|ds-setup"
@@ -12,10 +14,12 @@ lib389:
 lib389-rpmbuild-prep:
 	mkdir -p ~/rpmbuild/SOURCES
 	mkdir -p ~/rpmbuild/SPECS
-	cd $(DEVDIR)/lib389/ && sudo python setup.py sdist --formats=bztar
-	cp $(DEVDIR)/lib389/dist/*.tar.bz2 ~/rpmbuild/SOURCES/
+	#cd $(DEVDIR)/lib389/ && sudo python setup.py sdist --formats=bztar
+	#cp $(DEVDIR)/lib389/dist/*.tar.bz2 ~/rpmbuild/SOURCES/
 	# This needs to be less shit, but there is a bug in rename.
-	rename 1.tar.bz2 1-1.tar.bz2 ~/rpmbuild/SOURCES/python-lib389*
+	#rename 1.tar.bz2 1-1.tar.bz2 ~/rpmbuild/SOURCES/python-lib389*
+	cd $(DEVDIR)/lib389/ && git archive --prefix=python-lib389-$(LIB389_VERS)-1/ HEAD | bzip2 > $(DEVDIR)/lib389/dist/python-lib389-$(LIB389_VERS)-1.tar.bz2
+	cp $(DEVDIR)/lib389/dist/*.tar.bz2 ~/rpmbuild/SOURCES/
 
 lib389-srpms: lib389-rpmbuild-prep
 	rpmbuild -bs $(DEVDIR)/lib389/python-lib389.spec
@@ -60,10 +64,10 @@ rest389: lib389
 rest389-rpmbuild-prep:
 	mkdir -p ~/rpmbuild/SOURCES
 	mkdir -p ~/rpmbuild/SPECS
-	cd $(DEVDIR)/rest389/ && sudo python setup.py sdist --formats=bztar
-	cp $(DEVDIR)/rest389/dist/*.tar.bz2 ~/rpmbuild/SOURCES/
 	# This needs to be less shit, but there is a bug in rename.
 	#rename 1.tar.bz2 1-1.tar.bz2 ~/rpmbuild/SOURCES/python-lib389*
+	cd $(DEVDIR)/rest389/ && git archive --prefix=python-rest389-$(REST389_VERS)-1/ HEAD | bzip2 > $(DEVDIR)/rest389/dist/python-rest389-$(REST389_VERS)-1.tar.bz2
+	cp $(DEVDIR)/rest389/dist/*.tar.bz2 ~/rpmbuild/SOURCES/
 
 rest389-srpms: rest389-rpmbuild-prep
 	rpmbuild -bs $(DEVDIR)/rest389/python-rest389.spec
