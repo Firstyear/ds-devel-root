@@ -80,14 +80,17 @@ clone:
 	git clone ssh://git.fedorahosted.org/git/389/ds.git
 	git clone ssh://git.fedorahosted.org/git/nunc-stans.git
 	git clone ssh://git.fedorahosted.org/git/389/lib389.git
+	git clone ssh://git.fedorahosted.org/git/389/rest389.git
 
 pull:
 	cd ds; git pull
 	cd lib389; git pull
+	cd rest389; git pull
 
 github-commit:
 	cd ds; git push github --all --force
 	cd lib389; git push github --all --force
+	cd rest389; git push github --all --force
 
 srpms: ds-srpms lib389-srpms rest389-srpms
 
