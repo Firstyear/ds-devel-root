@@ -41,7 +41,7 @@ ds-configure:
 	
 	cd $(DEVDIR)/ds && autoreconf
 	mkdir -p ~/build/ds/
-	cd ~/build/ds/ && $(DEVDIR)//ds/configure --enable-gcc-security --enable-asan --with-openldap --enable-debug --with-nunc-stans=/opt/dirsrv/ --enable-nunc-stans  --prefix=/opt/dirsrv/
+	cd ~/build/ds/ && $(DEVDIR)//ds/configure --enable-gcc-security --enable-asan --with-openldap --with-systemd --enable-debug --with-nunc-stans=/opt/dirsrv/ --enable-nunc-stans  --prefix=/opt/dirsrv/
 
 ds: lib389 nunc-stans ds-configure
 	make -C ~/build/ds
@@ -49,10 +49,13 @@ ds: lib389 nunc-stans ds-configure
 	sudo cp $(DEVDIR)/start-dirsrv-asan /opt/dirsrv/sbin/start-dirsrv
 
 ds-rpms: ds-configure
+	make -C ~/build/ds rpmsources
 	make -C ~/build/ds rpms
 
 ds-srpms: ds-configure
+	make -C ~/build/ds rpmsources
 	make -C ~/build/ds srpm
+	cp /home/wibrown/build/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
 ds-setup:
 	sudo /opt/dirsrv/sbin/setup-ds.pl --silent --debug --file=$(DEVDIR)/setup.inf General.FullMachineName=$$(hostname)
