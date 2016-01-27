@@ -44,8 +44,8 @@ ds-configure:
 	cd ~/build/ds/ && $(DEVDIR)//ds/configure --enable-gcc-security --enable-asan --with-openldap --with-systemd --enable-debug --with-nunc-stans=/opt/dirsrv/ --enable-nunc-stans  --prefix=/opt/dirsrv/
 
 ds: lib389 nunc-stans ds-configure
-	make -C ~/build/ds
-	sudo make -C ~/build/ds install
+	make -C ~/build/ds 1> /tmp/buildlog
+	sudo make -C ~/build/ds install 1>> /tmp/buildlog
 	sudo cp $(DEVDIR)/start-dirsrv-asan /opt/dirsrv/sbin/start-dirsrv
 
 ds-rpms: ds-configure
