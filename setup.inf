@@ -9,6 +9,7 @@ AddOrgEntries = Yes
 AddSampleEntries = No
 HashedRootDNPwd = {SSHA512}vDw/hx3ZWIujH02wbl5IY6D2IgZXMzdEk/RUokytzNEr02JzdM/AGY8oHXSjTXM4/veeikiIaqeQAZwxKQ94EX5WkjtT3l/y
 InstallLdifFile = suggest
+InstScriptsEnabled = true
 RootDN = cn=Directory Manager
 RootDNPwd = password
 ServerIdentifier = localhost

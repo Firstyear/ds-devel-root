@@ -41,7 +41,7 @@ ds-configure:
 	
 	cd $(DEVDIR)/ds && autoreconf
 	mkdir -p ~/build/ds/
-	cd ~/build/ds/ && $(DEVDIR)//ds/configure --enable-gcc-security --enable-asan --with-openldap --with-systemd --enable-debug --with-nunc-stans=/opt/dirsrv/ --enable-nunc-stans  --prefix=/opt/dirsrv/
+	cd ~/build/ds/ && $(DEVDIR)//ds/configure --with-openldap --enable-debug --with-nunc-stans=/opt/dirsrv/ --enable-nunc-stans  --prefix=/opt/dirsrv/ --enable-gcc-security --enable-asan --with-systemd 
 
 ds: lib389 nunc-stans ds-configure
 	make -C ~/build/ds 1> /tmp/buildlog
@@ -99,8 +99,7 @@ srpms: ds-srpms lib389-srpms rest389-srpms
 
 copr:
 	# Upload all the sprms to copr as builds
-	copr-cli build lib389 --nowait `ls -1 $(DEVDIR)/lib389/dist/python-lib389*.src.rpm | head`
-	copr-cli build ds --nowait `ls -1 $(DEVDIR)/rpmbuild/SRPMS/*.src.rpm | head`
-	copr-cli build rest389 --nowait `ls -1 $(DEVDIR)/rest389/dist/python-rest389*.src.rpm | head`
-
+	copr-cli build lib389 --nowait `ls -1r $(DEVDIR)/lib389/dist/python-lib389*.src.rpm | head -n 1`
+	copr-cli build ds --nowait `ls -1r $(DEVDIR)/rpmbuild/SRPMS/*.src.rpm | head -n 1`
+	copr-cli build rest389 --nowait `ls -1r $(DEVDIR)/rest389/dist/python-rest389*.src.rpm | head -n 1`
 

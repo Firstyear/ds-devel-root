@@ -70,7 +70,7 @@ start_instance() {
             return 1
         fi
     else
-        cd $SERVERBIN_DIR; ASAN_OPTIONS=detect_leaks=1 ./ns-slapd -d 0 -D $CONFIG_DIR -i $PIDFILE -w $STARTPIDFILE "$@" &>> /tmp/ns-slapd-asan & 
+        ASAN_OPTIONS=detect_leaks=1 $SERVERBIN_DIR/ns-slapd -d 0 -D $CONFIG_DIR -i $PIDFILE -w $STARTPIDFILE "$@" &>> /tmp/ns-slapd-asan & 
         if [ $? -ne 0 ]; then
             return 1
         fi
