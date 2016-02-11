@@ -1,6 +1,7 @@
 .PHONY: ds-setup lib389 rest389
 
 DEVDIR ?= $(shell pwd)
+BUILDDIR ?= ~/build
 LIB389_VERS ?= $(shell cat ./lib389/VERSION | head -n 1)
 REST389_VERS ?= $(shell cat ./rest389/VERSION | head -n 1)
 
@@ -29,33 +30,35 @@ lib389-rpms: lib389-rpmbuild-prep
 	rpmbuild -bb $(DEVDIR)/lib389/python-lib389.spec
 
 nunc-stans-configure:
-	mkdir -p ~/build/nunc-stans
-	cd ~/build/nunc-stans && $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv/
+	cd $(DEVDIR)/nunc-stans/ && autoreconf
+	mkdir -p $(BUILDDIR)/nunc-stans
+	cd $(BUILDDIR)/nunc-stans && $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv
 
 nunc-stans: nunc-stans-configure
-	make -C ~/build/nunc-stans/
-	sudo make -C ~/build/nunc-stans/ install
+	make -C $(BUILDDIR)/nunc-stans/
+	sudo make -C $(BUILDDIR)/nunc-stans/ install
 	sudo cp $(DEVDIR)/nunc-stans/liblfds/bin/* /opt/dirsrv/lib/
 
 ds-configure:
 	
 	cd $(DEVDIR)/ds && autoreconf
-	mkdir -p ~/build/ds/
-	cd ~/build/ds/ && $(DEVDIR)//ds/configure --with-openldap --enable-debug --with-nunc-stans=/opt/dirsrv/ --enable-nunc-stans  --prefix=/opt/dirsrv/ --enable-gcc-security --enable-asan --with-systemd 
+	mkdir -p $(BUILDDIR)/ds/
+	cd $(BUILDDIR)/ds/ && $(DEVDIR)/ds/configure --with-openldap --enable-debug --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --enable-asan --with-systemd 
 
 ds: lib389 nunc-stans ds-configure
-	make -C ~/build/ds 1> /tmp/buildlog
-	sudo make -C ~/build/ds install 1>> /tmp/buildlog
+	make -C $(BUILDDIR)/ds 1> /tmp/buildlog
+	sudo make -C $(BUILDDIR)/ds install
+	# 1>> /tmp/buildlog
 	sudo cp $(DEVDIR)/start-dirsrv-asan /opt/dirsrv/sbin/start-dirsrv
 
 ds-rpms: ds-configure
-	make -C ~/build/ds rpmsources
-	make -C ~/build/ds rpms
+	make -C $(BUILDDIR)/ds rpmsources
+	make -C $(BUILDDIR)/ds rpms
 
 ds-srpms: ds-configure
-	make -C ~/build/ds rpmsources
-	make -C ~/build/ds srpm
-	cp /home/wibrown/build/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
+	make -C $(BUILDDIR)/ds rpmsources
+	make -C $(BUILDDIR)/ds srpm
+	cp $(BUILDDIR)/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
 ds-setup:
 	sudo /opt/dirsrv/sbin/setup-ds.pl --silent --debug --file=$(DEVDIR)/setup.inf General.FullMachineName=$$(hostname)
@@ -97,9 +100,16 @@ github-commit:
 
 srpms: ds-srpms lib389-srpms rest389-srpms
 
+# Is there a nicer way to do this?
+copr-wait:
+	# Upload all the sprms to copr as builds
+	copr-cli build lib389 `ls -1r $(DEVDIR)/lib389/dist/python-lib389*.src.rpm | head -n 1`
+	copr-cli build rest389 `ls -1r $(DEVDIR)/rest389/dist/python-rest389*.src.rpm | head -n 1`
+	copr-cli build ds `ls -1r $(DEVDIR)/rpmbuild/SRPMS/*.src.rpm | head -n 1`
+
 copr:
 	# Upload all the sprms to copr as builds
 	copr-cli build lib389 --nowait `ls -1r $(DEVDIR)/lib389/dist/python-lib389*.src.rpm | head -n 1`
-	copr-cli build ds --nowait `ls -1r $(DEVDIR)/rpmbuild/SRPMS/*.src.rpm | head -n 1`
 	copr-cli build rest389 --nowait `ls -1r $(DEVDIR)/rest389/dist/python-rest389*.src.rpm | head -n 1`
+	copr-cli build ds --nowait `ls -1r $(DEVDIR)/rpmbuild/SRPMS/*.src.rpm | head -n 1`
 
