@@ -1,4 +1,4 @@
-.PHONY: ds-setup lib389 rest389
+.PHONY: ds-setup lib389 rest389 pyldap
 
 DEVDIR ?= $(shell pwd)
 BUILDDIR ?= ~/build
@@ -8,7 +8,13 @@ REST389_VERS ?= $(shell cat ./rest389/VERSION | head -n 1)
 all:
 	echo "make ds|nunc-stans|lib389|ds-setup"
 
-lib389:
+clean: ds-clean nunc-stans-clean
+
+pyldap:
+	cd $(DEVDIR)/pyldap/ && python setup.py build
+	cd $(DEVDIR)/pyldap/ && sudo python setup.py install --force --root=/
+
+lib389: pyldap
 	cd $(DEVDIR)/lib389/ && python setup.py build
 	cd $(DEVDIR)/lib389/ && sudo python setup.py install --force --root=/
 
@@ -30,7 +36,7 @@ lib389-rpms: lib389-rpmbuild-prep
 	rpmbuild -bb $(DEVDIR)/lib389/python-lib389.spec
 
 nunc-stans-configure:
-	cd $(DEVDIR)/nunc-stans/ && autoreconf
+	cd $(DEVDIR)/nunc-stans/ && autoreconf --force --install
 	mkdir -p $(BUILDDIR)/nunc-stans
 	cd $(BUILDDIR)/nunc-stans && $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv
 
@@ -39,17 +45,21 @@ nunc-stans: nunc-stans-configure
 	sudo make -C $(BUILDDIR)/nunc-stans/ install
 	sudo cp $(DEVDIR)/nunc-stans/liblfds/bin/* /opt/dirsrv/lib/
 
+nunc-stans-clean:
+	make -C $(BUILDDIR)/nunc-stans/ clean
+
 ds-configure:
-	
 	cd $(DEVDIR)/ds && autoreconf
 	mkdir -p $(BUILDDIR)/ds/
-	cd $(BUILDDIR)/ds/ && $(DEVDIR)/ds/configure --with-openldap --enable-debug --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --enable-asan --with-systemd 
+	cd $(BUILDDIR)/ds/ && CFLAGS=-O0 $(DEVDIR)/ds/configure --with-openldap --enable-debug --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --enable-asan --with-systemd --enable-auto-dn-suffix
 
 ds: lib389 nunc-stans ds-configure
 	make -C $(BUILDDIR)/ds 1> /tmp/buildlog
-	sudo make -C $(BUILDDIR)/ds install
-	# 1>> /tmp/buildlog
+	sudo make -C $(BUILDDIR)/ds install 1>> /tmp/buildlog
 	sudo cp $(DEVDIR)/start-dirsrv-asan /opt/dirsrv/sbin/start-dirsrv
+
+ds-clean:
+	make -C $(BUILDDIR)/ds clean
 
 ds-rpms: ds-configure
 	make -C $(BUILDDIR)/ds rpmsources
