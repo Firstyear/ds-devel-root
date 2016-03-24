@@ -14,26 +14,18 @@ pyldap:
 	cd $(DEVDIR)/pyldap/ && python setup.py build
 	cd $(DEVDIR)/pyldap/ && sudo python setup.py install --force --root=/
 
-lib389: pyldap
-	cd $(DEVDIR)/lib389/ && python setup.py build
-	cd $(DEVDIR)/lib389/ && sudo python setup.py install --force --root=/
+lib389:
+	make -C $(DEVDIR)/lib389/ build
+	sudo make -C $(DEVDIR)/lib389/ install
 
 lib389-rpmbuild-prep:
-	mkdir -p ~/rpmbuild/SOURCES
-	mkdir -p ~/rpmbuild/SPECS
-	#cd $(DEVDIR)/lib389/ && sudo python setup.py sdist --formats=bztar
-	#cp $(DEVDIR)/lib389/dist/*.tar.bz2 ~/rpmbuild/SOURCES/
-	# This needs to be less shit, but there is a bug in rename.
-	#rename 1.tar.bz2 1-1.tar.bz2 ~/rpmbuild/SOURCES/python-lib389*
-	cd $(DEVDIR)/lib389/ && git archive --prefix=python-lib389-$(LIB389_VERS)-1/ HEAD | bzip2 > $(DEVDIR)/lib389/dist/python-lib389-$(LIB389_VERS)-1.tar.bz2
-	cp $(DEVDIR)/lib389/dist/*.tar.bz2 ~/rpmbuild/SOURCES/
+	make -C $(DEVDIR)/lib389/ rpmbuild-prep
 
 lib389-srpms: lib389-rpmbuild-prep
-	rpmbuild -bs $(DEVDIR)/lib389/python-lib389.spec
-	cp ~/rpmbuild/SRPMS/python-lib389*.src.rpm $(DEVDIR)/lib389/dist/
+	make -C $(DEVDIR)/lib389/ srpm
 
 lib389-rpms: lib389-rpmbuild-prep
-	rpmbuild -bb $(DEVDIR)/lib389/python-lib389.spec
+	make -C $(DEVDIR)/lib389/ rpm
 
 nunc-stans-configure:
 	cd $(DEVDIR)/nunc-stans/ && autoreconf --force --install
@@ -51,7 +43,7 @@ nunc-stans-clean:
 ds-configure:
 	cd $(DEVDIR)/ds && autoreconf
 	mkdir -p $(BUILDDIR)/ds/
-	cd $(BUILDDIR)/ds/ && CFLAGS=-O0 $(DEVDIR)/ds/configure --with-openldap --enable-debug --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --enable-asan --with-systemd --enable-auto-dn-suffix
+	cd $(BUILDDIR)/ds/ && CFLAGS=-O0 $(DEVDIR)/ds/configure --with-openldap --enable-debug --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --enable-asan --with-systemd --enable-auto-dn-suffix --enable-autobind
 
 ds: lib389 nunc-stans ds-configure
 	make -C $(BUILDDIR)/ds 1> /tmp/buildlog
