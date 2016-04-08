@@ -40,12 +40,25 @@ nunc-stans: nunc-stans-configure
 nunc-stans-clean:
 	make -C $(BUILDDIR)/nunc-stans/ clean
 
+svrcore-configure:
+	cd $(DEVDIR)/svrcore/ && autoreconf --force --install
+	mkdir -p $(BUILDDIR)/svrcore
+	cd $(BUILDDIR)/svrcore && $(DEVDIR)/svrcore/configure --prefix=/opt/dirsrv
+
+svrcore: svrcore-configure
+	make -C $(BUILDDIR)/svrcore
+	sudo make -C $(BUILDDIR)/svrcore install
+
+svrcore-clean:
+	make -C $(BUILDDIR)/svrcore clean
+
 ds-configure:
 	cd $(DEVDIR)/ds && autoreconf
 	mkdir -p $(BUILDDIR)/ds/
-	cd $(BUILDDIR)/ds/ && CFLAGS=-O0 $(DEVDIR)/ds/configure --with-openldap --enable-debug --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --enable-asan --with-systemd --enable-auto-dn-suffix --enable-autobind
+	cd $(BUILDDIR)/ds/ && CFLAGS=-O0 $(DEVDIR)/ds/configure --with-openldap --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --enable-asan --with-systemd --enable-auto-dn-suffix --enable-autobind 
+	#--with-svrcore=/opt/svrcore
 
-ds: lib389 nunc-stans ds-configure
+ds: lib389 svrcore nunc-stans ds-configure
 	make -C $(BUILDDIR)/ds 1> /tmp/buildlog
 	sudo make -C $(BUILDDIR)/ds install 1>> /tmp/buildlog
 	sudo cp $(DEVDIR)/start-dirsrv-asan /opt/dirsrv/sbin/start-dirsrv
