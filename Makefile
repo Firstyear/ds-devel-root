@@ -43,7 +43,7 @@ nunc-stans-clean:
 svrcore-configure:
 	cd $(DEVDIR)/svrcore/ && autoreconf --force --install
 	mkdir -p $(BUILDDIR)/svrcore
-	cd $(BUILDDIR)/svrcore && $(DEVDIR)/svrcore/configure --prefix=/opt/dirsrv
+	cd $(BUILDDIR)/svrcore && $(DEVDIR)/svrcore/configure --prefix=/opt/dirsrv --enable-asan --enable-debug
 
 svrcore: svrcore-configure
 	make -C $(BUILDDIR)/svrcore
