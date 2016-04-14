@@ -23,9 +23,11 @@ lib389-rpmbuild-prep:
 
 lib389-srpms: lib389-rpmbuild-prep
 	make -C $(DEVDIR)/lib389/ srpm
+	cp $(DEVDIR)/lib389/dist/python-lib389*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
 lib389-rpms: lib389-rpmbuild-prep
 	make -C $(DEVDIR)/lib389/ rpm
+	sudo cp ~/rpmbuild/RPMS/noarch/python-lib389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
 
 nunc-stans-configure:
 	cd $(DEVDIR)/nunc-stans/ && autoreconf --force --install
@@ -52,11 +54,18 @@ svrcore: svrcore-configure
 svrcore-clean:
 	make -C $(BUILDDIR)/svrcore clean
 
+svrcore-rpms: svrcore-configure
+	make -C $(BUILDDIR)/svrcore rpms
+	cp $(BUILDDIR)/svrcore/rpmbuild/RPMS/x86_64/svrcore*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/
+
+svrcore-srpms: svrcore-configure
+	make -C $(BUILDDIR)/svrcore srpm
+	cp $(BUILDDIR)/svrcore/rpmbuild/SRPMS/svrcore*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
+
 ds-configure:
 	cd $(DEVDIR)/ds && autoreconf
 	mkdir -p $(BUILDDIR)/ds/
-	cd $(BUILDDIR)/ds/ && CFLAGS=-O0 $(DEVDIR)/ds/configure --with-openldap --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --enable-asan --with-systemd --enable-auto-dn-suffix --enable-autobind 
-	#--with-svrcore=/opt/svrcore
+	cd $(BUILDDIR)/ds/ && CFLAGS=-O0 $(DEVDIR)/ds/configure --with-openldap --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --enable-asan --with-systemd --enable-auto-dn-suffix --enable-autobind --with-journald
 
 ds: lib389 svrcore nunc-stans ds-configure
 	make -C $(BUILDDIR)/ds 1> /tmp/buildlog
@@ -69,6 +78,7 @@ ds-clean:
 ds-rpms: ds-configure
 	make -C $(BUILDDIR)/ds rpmsources
 	make -C $(BUILDDIR)/ds rpms
+	cp $(BUILDDIR)/ds/rpmbuild/RPMS/x86_64/389-ds-base*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/
 
 ds-srpms: ds-configure
 	make -C $(BUILDDIR)/ds rpmsources
@@ -85,46 +95,54 @@ rest389: lib389
 rest389-rpmbuild-prep:
 	mkdir -p ~/rpmbuild/SOURCES
 	mkdir -p ~/rpmbuild/SPECS
-	# This needs to be less shit, but there is a bug in rename.
-	#rename 1.tar.bz2 1-1.tar.bz2 ~/rpmbuild/SOURCES/python-lib389*
 	cd $(DEVDIR)/rest389/ && git archive --prefix=python-rest389-$(REST389_VERS)-1/ HEAD | bzip2 > $(DEVDIR)/rest389/dist/python-rest389-$(REST389_VERS)-1.tar.bz2
 	cp $(DEVDIR)/rest389/dist/*.tar.bz2 ~/rpmbuild/SOURCES/
 
 rest389-srpms: rest389-rpmbuild-prep
 	rpmbuild -bs $(DEVDIR)/rest389/python-rest389.spec
-	sudo cp ~/rpmbuild/SRPMS/python-rest389*.src.rpm $(DEVDIR)/rest389/dist/
+	sudo cp ~/rpmbuild/SRPMS/python-rest389*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
 rest389-rpms: rest389-rpmbuild-prep
 	rpmbuild -bb $(DEVDIR)/rest389/python-rest389.spec
+	sudo cp ~/rpmbuild/RPMS/noarch/python-rest389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
 
 clone:
 	git clone ssh://git.fedorahosted.org/git/389/ds.git
 	git clone ssh://git.fedorahosted.org/git/nunc-stans.git
 	git clone ssh://git.fedorahosted.org/git/389/lib389.git
 	git clone ssh://git.fedorahosted.org/git/389/rest389.git
+	git clone ssh://git@pagure.io/svrcore.git
 
 pull:
 	cd ds; git pull
 	cd lib389; git pull
 	cd rest389; git pull
+	cd nunc-stans; git pull
+	cd svrcore; git pull
 
 github-commit:
 	cd ds; git push github --all --force
 	cd lib389; git push github --all --force
 	cd rest389; git push github --all --force
+	cd svrcore; git push github --all --force
+	cd nunc-stans; git push github --all --force
 
-srpms: ds-srpms lib389-srpms rest389-srpms
+rpms: ds-rpms lib389-rpms rest389-rpms svrcore-rpms
+
+srpms: ds-srpms lib389-srpms rest389-srpms svrcore-srpms
 
 # Is there a nicer way to do this?
 copr-wait:
 	# Upload all the sprms to copr as builds
-	copr-cli build lib389 `ls -1r $(DEVDIR)/lib389/dist/python-lib389*.src.rpm | head -n 1`
-	copr-cli build rest389 `ls -1r $(DEVDIR)/rest389/dist/python-rest389*.src.rpm | head -n 1`
-	copr-cli build ds `ls -1r $(DEVDIR)/rpmbuild/SRPMS/*.src.rpm | head -n 1`
+	copr-cli build lib389 `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-lib389*.src.rpm | head -n 1`
+	copr-cli build rest389 `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-rest389*.src.rpm | head -n 1`
+	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/389-ds-base*.src.rpm | head -n 1`
+	copr-cli build svrcore `ls -1t $(DEVDIR)/rpmbuild/SRPMS/svrcore*.src.rpm | head -n 1`
 
 copr:
 	# Upload all the sprms to copr as builds
-	copr-cli build lib389 --nowait `ls -1r $(DEVDIR)/lib389/dist/python-lib389*.src.rpm | head -n 1`
-	copr-cli build rest389 --nowait `ls -1r $(DEVDIR)/rest389/dist/python-rest389*.src.rpm | head -n 1`
-	copr-cli build ds --nowait `ls -1r $(DEVDIR)/rpmbuild/SRPMS/*.src.rpm | head -n 1`
+	copr-cli build lib389 --nowait `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-lib389*.src.rpm | head -n 1`
+	copr-cli build rest389 --nowait `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-rest389*.src.rpm | head -n 1`
+	copr-cli build ds --nowait `ls -1t $(DEVDIR)/rpmbuild/SRPMS/389-ds-base*.src.rpm | head -n 1`
+	copr-cli build svrcore --nowait `ls -1t $(DEVDIR)/rpmbuild/SRPMS/svrcore*.src.rpm | head -n 1`
 
