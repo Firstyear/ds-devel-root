@@ -8,7 +8,11 @@ REST389_VERS ?= $(shell cat ./rest389/VERSION | head -n 1)
 all:
 	echo "make ds|nunc-stans|lib389|ds-setup"
 
-clean: ds-clean nunc-stans-clean
+builddeps:
+	sudo yum install rpm-build gcc autoconf make automake libtool libasan rpmdevtools \
+		`grep "^BuildRequires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | awk '{ print $2 }' | grep -v "^/"`
+
+clean: ds-clean nunc-stans-clean svrcore-clean
 
 pyldap:
 	cd $(DEVDIR)/pyldap/ && python setup.py build
@@ -22,6 +26,7 @@ lib389-rpmbuild-prep:
 	make -C $(DEVDIR)/lib389/ rpmbuild-prep
 
 lib389-srpms: lib389-rpmbuild-prep
+	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
 	make -C $(DEVDIR)/lib389/ srpm
 	cp $(DEVDIR)/lib389/dist/python-lib389*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
@@ -59,6 +64,7 @@ svrcore-rpms: svrcore-configure
 	cp $(BUILDDIR)/svrcore/rpmbuild/RPMS/x86_64/svrcore*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/
 
 svrcore-srpms: svrcore-configure
+	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
 	make -C $(BUILDDIR)/svrcore srpm
 	cp $(BUILDDIR)/svrcore/rpmbuild/SRPMS/svrcore*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
@@ -81,6 +87,7 @@ ds-rpms: ds-configure
 	cp $(BUILDDIR)/ds/rpmbuild/RPMS/x86_64/389-ds-base*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/
 
 ds-srpms: ds-configure
+	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
 	make -C $(BUILDDIR)/ds rpmsources
 	make -C $(BUILDDIR)/ds srpm
 	cp $(BUILDDIR)/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
@@ -93,12 +100,14 @@ rest389: lib389
 	cd $(DEVDIR)/rest389/ && sudo python setup.py install --force --root=/
 
 rest389-rpmbuild-prep:
+	mkdir $(DEVDIR)/rest389/dist
 	mkdir -p ~/rpmbuild/SOURCES
 	mkdir -p ~/rpmbuild/SPECS
 	cd $(DEVDIR)/rest389/ && git archive --prefix=python-rest389-$(REST389_VERS)-1/ HEAD | bzip2 > $(DEVDIR)/rest389/dist/python-rest389-$(REST389_VERS)-1.tar.bz2
 	cp $(DEVDIR)/rest389/dist/*.tar.bz2 ~/rpmbuild/SOURCES/
 
 rest389-srpms: rest389-rpmbuild-prep
+	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
 	rpmbuild -bs $(DEVDIR)/rest389/python-rest389.spec
 	sudo cp ~/rpmbuild/SRPMS/python-rest389*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
@@ -110,7 +119,7 @@ clone:
 	git clone ssh://git.fedorahosted.org/git/389/ds.git
 	git clone ssh://git.fedorahosted.org/git/nunc-stans.git
 	git clone ssh://git.fedorahosted.org/git/389/lib389.git
-	git clone ssh://git.fedorahosted.org/git/389/rest389.git
+	git clone ssh://git.fedorahosted.org/git/rest389.git
 	git clone ssh://git@pagure.io/svrcore.git
 
 pull:
