@@ -4,21 +4,25 @@ DEVDIR ?= $(shell pwd)
 BUILDDIR ?= ~/build
 LIB389_VERS ?= $(shell cat ./lib389/VERSION | head -n 1)
 REST389_VERS ?= $(shell cat ./rest389/VERSION | head -n 1)
+PYTHON ?= /usr/bin/python3
 
 all:
 	echo "make ds|nunc-stans|lib389|ds-setup"
 
 builddeps:
 	sudo yum install rpm-build gcc autoconf make automake libtool libasan rpmdevtools \
-		`grep "^BuildRequires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | awk '{ print $2 }' | grep -v "^/"`
+		python34 python34-devel python34-setuptools python34-six \
+		`grep "^BuildRequires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | awk '{ print $$2 }' | grep -v "^/"`
+	sudo /usr/bin/easy_install-3.4 pip
+	sudo pip3.4 install pyasn1 pyasn1-modules
 
 clean: ds-clean nunc-stans-clean svrcore-clean
 
 pyldap:
-	cd $(DEVDIR)/pyldap/ && python setup.py build
-	cd $(DEVDIR)/pyldap/ && sudo python setup.py install --force --root=/
+	cd $(DEVDIR)/pyldap/ && $(PYTHON) setup.py build
+	cd $(DEVDIR)/pyldap/ && sudo $(PYTHON) setup.py install --force --root=/
 
-lib389:
+lib389: pyldap
 	make -C $(DEVDIR)/lib389/ build
 	sudo make -C $(DEVDIR)/lib389/ install
 
@@ -50,7 +54,7 @@ nunc-stans-clean:
 svrcore-configure:
 	cd $(DEVDIR)/svrcore/ && autoreconf --force --install
 	mkdir -p $(BUILDDIR)/svrcore
-	cd $(BUILDDIR)/svrcore && $(DEVDIR)/svrcore/configure --prefix=/opt/dirsrv --enable-asan --enable-debug
+	cd $(BUILDDIR)/svrcore && $(DEVDIR)/svrcore/configure --prefix=/opt/dirsrv --enable-asan --enable-debug --with-systemd
 
 svrcore: svrcore-configure
 	make -C $(BUILDDIR)/svrcore
@@ -96,8 +100,8 @@ ds-setup:
 	sudo /opt/dirsrv/sbin/setup-ds.pl --silent --debug --file=$(DEVDIR)/setup.inf General.FullMachineName=$$(hostname)
 
 rest389: lib389
-	cd $(DEVDIR)/rest389/ && python setup.py build
-	cd $(DEVDIR)/rest389/ && sudo python setup.py install --force --root=/
+	cd $(DEVDIR)/rest389/ && $(PYTHON) setup.py build
+	cd $(DEVDIR)/rest389/ && sudo $(PYTHON) setup.py install --force --root=/
 
 rest389-rpmbuild-prep:
 	mkdir $(DEVDIR)/rest389/dist
@@ -122,6 +126,13 @@ clone:
 	git clone ssh://git.fedorahosted.org/git/rest389.git
 	git clone ssh://git@pagure.io/svrcore.git
 
+clone-anon:
+	git clone https://git.fedorahosted.org/git/389/ds.git
+	git clone https://git.fedorahosted.org/git/nunc-stans.git
+	git clone https://git.fedorahosted.org/git/389/lib389.git
+	git clone https://git.fedorahosted.org/git/rest389.git
+	git clone https://pagure.io/svrcore.git
+
 pull:
 	cd ds; git pull
 	cd lib389; git pull
@@ -130,11 +141,12 @@ pull:
 	cd svrcore; git pull
 
 github-commit:
-	cd ds; git push github --all --force
-	cd lib389; git push github --all --force
-	cd rest389; git push github --all --force
-	cd svrcore; git push github --all --force
-	cd nunc-stans; git push github --all --force
+	echo you should be on the master branches here!
+	cd ds; git push github
+	cd lib389; git push github
+	cd rest389; git push github
+	cd svrcore; git push github
+	cd nunc-stans; git push github
 
 rpms: ds-rpms lib389-rpms rest389-rpms svrcore-rpms
 
