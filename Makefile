@@ -73,7 +73,7 @@ svrcore-srpms: svrcore-configure
 	cp $(BUILDDIR)/svrcore/rpmbuild/SRPMS/svrcore*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
 # Can I improve this to not need svrcore?
-ds-configure: svrcore
+ds-configure: 
 	cd $(DEVDIR)/ds && autoreconf
 	mkdir -p $(BUILDDIR)/ds/
 	cd $(BUILDDIR)/ds/ && CFLAGS=-O0 $(DEVDIR)/ds/configure --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --enable-asan --enable-auto-dn-suffix --enable-autobind --with-openldap --with-systemd --with-journald
