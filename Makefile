@@ -10,7 +10,7 @@ all:
 	echo "make ds|nunc-stans|lib389|ds-setup"
 
 builddeps:
-	sudo yum install rpm-build gcc autoconf make automake libtool libasan rpmdevtools \
+	sudo yum install -y rpm-build gcc autoconf make automake libtool libasan rpmdevtools \
 		python34 python34-devel python34-setuptools python34-six \
 		`grep "^BuildRequires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | awk '{ print $$2 }' | grep -v "^/"`
 	sudo /usr/bin/easy_install-3.4 pip
@@ -36,7 +36,7 @@ lib389-srpms: lib389-rpmbuild-prep
 
 lib389-rpms: lib389-rpmbuild-prep
 	make -C $(DEVDIR)/lib389/ rpm
-	sudo cp ~/rpmbuild/RPMS/noarch/python-lib389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
+	cp ~/rpmbuild/RPMS/noarch/python-lib389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
 
 nunc-stans-configure:
 	cd $(DEVDIR)/nunc-stans/ && autoreconf --force --install
@@ -72,10 +72,11 @@ svrcore-srpms: svrcore-configure
 	make -C $(BUILDDIR)/svrcore srpm
 	cp $(BUILDDIR)/svrcore/rpmbuild/SRPMS/svrcore*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
-ds-configure:
+# Can I improve this to not need svrcore?
+ds-configure: svrcore
 	cd $(DEVDIR)/ds && autoreconf
 	mkdir -p $(BUILDDIR)/ds/
-	cd $(BUILDDIR)/ds/ && CFLAGS=-O0 $(DEVDIR)/ds/configure --with-openldap --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --enable-asan --with-systemd --enable-auto-dn-suffix --enable-autobind --with-journald
+	cd $(BUILDDIR)/ds/ && CFLAGS=-O0 $(DEVDIR)/ds/configure --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --enable-asan --enable-auto-dn-suffix --enable-autobind --with-openldap --with-systemd --with-journald
 
 ds: lib389 svrcore nunc-stans ds-configure
 	make -C $(BUILDDIR)/ds 1> /tmp/buildlog
@@ -104,7 +105,7 @@ rest389: lib389
 	cd $(DEVDIR)/rest389/ && sudo $(PYTHON) setup.py install --force --root=/
 
 rest389-rpmbuild-prep:
-	mkdir $(DEVDIR)/rest389/dist
+	mkdir -p $(DEVDIR)/rest389/dist
 	mkdir -p ~/rpmbuild/SOURCES
 	mkdir -p ~/rpmbuild/SPECS
 	cd $(DEVDIR)/rest389/ && git archive --prefix=python-rest389-$(REST389_VERS)-1/ HEAD | bzip2 > $(DEVDIR)/rest389/dist/python-rest389-$(REST389_VERS)-1.tar.bz2
@@ -113,11 +114,11 @@ rest389-rpmbuild-prep:
 rest389-srpms: rest389-rpmbuild-prep
 	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
 	rpmbuild -bs $(DEVDIR)/rest389/python-rest389.spec
-	sudo cp ~/rpmbuild/SRPMS/python-rest389*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
+	cp ~/rpmbuild/SRPMS/python-rest389*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
 rest389-rpms: rest389-rpmbuild-prep
 	rpmbuild -bb $(DEVDIR)/rest389/python-rest389.spec
-	sudo cp ~/rpmbuild/RPMS/noarch/python-rest389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
+	cp ~/rpmbuild/RPMS/noarch/python-rest389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
 
 clone:
 	git clone ssh://git.fedorahosted.org/git/389/ds.git
