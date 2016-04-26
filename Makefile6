@@ -4,17 +4,17 @@ DEVDIR ?= $(shell pwd)
 BUILDDIR ?= ~/build
 LIB389_VERS ?= $(shell cat ./lib389/VERSION | head -n 1)
 REST389_VERS ?= $(shell cat ./rest389/VERSION | head -n 1)
-PYTHON ?= /usr/bin/python3
+PYTHON ?= /usr/bin/python
 
 all:
 	echo "make ds|nunc-stans|lib389|ds-setup"
 
 builddeps:
-	sudo yum install -y rpm-build gcc autoconf make automake libtool libasan rpmdevtools \
-		python34 python34-devel python34-setuptools python34-six \
+	sudo yum install -y rpm-build gcc autoconf make automake libtool libasan rpmdevtools gcc-g++ pam-devel openldap-devel db4-devel db4 svrcore-devel libicu-devel net-snmp-devel pcre-devel \
+		python34 python34-devel python34-setuptools python34-six python-pyasn1 \
 		`grep "^BuildRequires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | awk '{ print $$2 }' | grep -v "^/"`
-	sudo /usr/bin/easy_install-3.4 pip
-	sudo pip3.4 install pyasn1 pyasn1-modules
+	sudo easy_install pip
+	sudo pip install pyasn1 pyasn1-modules
 
 clean: ds-clean nunc-stans-clean svrcore-clean
 
@@ -22,7 +22,7 @@ pyldap:
 	cd $(DEVDIR)/pyldap/ && $(PYTHON) setup.py build
 	cd $(DEVDIR)/pyldap/ && sudo $(PYTHON) setup.py install --force --root=/
 
-lib389: pyldap
+lib389: 
 	make -C $(DEVDIR)/lib389/ build
 	sudo make -C $(DEVDIR)/lib389/ install
 
@@ -76,12 +76,12 @@ svrcore-srpms: svrcore-configure
 ds-configure: 
 	cd $(DEVDIR)/ds && autoreconf
 	mkdir -p $(BUILDDIR)/ds/
-	cd $(BUILDDIR)/ds/ && CFLAGS=-O0 $(DEVDIR)/ds/configure --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap #--enable-asan --enable-auto-dn-suffix --enable-autobind --with-systemd --with-journald
+	cd $(BUILDDIR)/ds/ && CFLAGS=-O0 $(DEVDIR)/ds/configure --enable-debug --prefix=/opt/dirsrv --enable-gcc-security --with-openldap #--enable-asan --enable-auto-dn-suffix --enable-autobind --with-systemd --with-journald
 
-ds: builddeps lib389 svrcore nunc-stans ds-configure
+ds: builddeps lib389 ds-configure
 	make -C $(BUILDDIR)/ds 1> /tmp/buildlog
 	sudo make -C $(BUILDDIR)/ds install 1>> /tmp/buildlog
-	sudo cp $(DEVDIR)/start-dirsrv-asan /opt/dirsrv/sbin/start-dirsrv
+	# sudo cp $(DEVDIR)/start-dirsrv-asan /opt/dirsrv/sbin/start-dirsrv
 
 ds-clean:
 	make -C $(BUILDDIR)/ds clean
