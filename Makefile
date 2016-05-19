@@ -10,7 +10,7 @@ all:
 	echo "make ds|nunc-stans|lib389|ds-setup"
 
 builddeps:
-	sudo yum install -y rpm-build gcc autoconf make automake libtool libasan rpmdevtools \
+	sudo yum install -y rpm-build gcc autoconf make automake libtool libasan rpmdevtools pam-devel \
 		python34 python34-devel python34-setuptools python34-six \
 		`grep "^BuildRequires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | awk '{ print $$2 }' | grep -v "^/"`
 	sudo /usr/bin/easy_install-3.4 pip
@@ -74,14 +74,14 @@ svrcore-srpms: svrcore-configure
 
 # Can I improve this to not need svrcore?
 ds-configure: 
-	cd $(DEVDIR)/ds && autoreconf
+	cd $(DEVDIR)/ds && autoreconf --force
 	mkdir -p $(BUILDDIR)/ds/
-	cd $(BUILDDIR)/ds/ && CFLAGS=-O0 $(DEVDIR)/ds/configure --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap #--enable-asan --enable-auto-dn-suffix --enable-autobind --with-systemd --with-journald
+	# -Wlogical-op  -Wduplicated-cond  -Wshift-overflow=2  -Wnull-dereference
+	cd $(BUILDDIR)/ds/ && CFLAGS="-O0 -Wall -Wextra -Wunused -Wno-unused-parameter" $(DEVDIR)/ds/configure --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-auto-dn-suffix --enable-autobind --with-systemd --with-journald
 
 ds: builddeps lib389 svrcore nunc-stans ds-configure
 	make -C $(BUILDDIR)/ds 1> /tmp/buildlog
 	sudo make -C $(BUILDDIR)/ds install 1>> /tmp/buildlog
-	sudo cp $(DEVDIR)/start-dirsrv-asan /opt/dirsrv/sbin/start-dirsrv
 
 ds-clean:
 	make -C $(BUILDDIR)/ds clean
