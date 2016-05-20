@@ -9,13 +9,19 @@ PYTHON ?= /usr/bin/python3
 all:
 	echo "make ds|nunc-stans|lib389|ds-setup"
 
-builddeps:
+builddeps-el7:
 	sudo yum install -y rpm-build gcc autoconf make automake libtool libasan rpmdevtools pam-devel \
 		python34 python34-devel python34-setuptools python34-six httpd-devel \
 		`grep "^BuildRequires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | awk '{ print $$2 }' | grep -v "^/"`
 	sudo /usr/bin/easy_install-3.4 pip
 	sudo pip3.4 install pyasn1 pyasn1-modules flask python-dateutil mod_wsgi
 	echo "LoadModule wsgi_module /usr/lib64/python3.4/site-packages/mod_wsgi/server/mod_wsgi-py34.cpython-34m.so" | sudo tee /etc/httpd/conf.modules.d/10-wsgi.conf
+
+builddeps-fedora:
+	sudo yum install -y rpm-build gcc autoconf make automake libtool libasan rpmdevtools pam-devel \
+		python3 python3-devel python3-setuptools python3-six httpd-devel python3-mod_wsgi \
+		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask \
+		`grep "^BuildRequires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | awk '{ print $$2 }' | grep -v "^/"`
 
 clean: ds-clean nunc-stans-clean svrcore-clean
 
@@ -80,7 +86,7 @@ ds-configure:
 	# -Wlogical-op  -Wduplicated-cond  -Wshift-overflow=2  -Wnull-dereference
 	cd $(BUILDDIR)/ds/ && CFLAGS="-O0 -Wall -Wextra -Wunused -Wno-unused-parameter" $(DEVDIR)/ds/configure --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-auto-dn-suffix --enable-autobind --with-systemd --with-journald
 
-ds: builddeps lib389 svrcore nunc-stans ds-configure
+ds: lib389 svrcore nunc-stans ds-configure
 	make -C $(BUILDDIR)/ds 1> /tmp/buildlog
 	sudo make -C $(BUILDDIR)/ds install 1>> /tmp/buildlog
 
