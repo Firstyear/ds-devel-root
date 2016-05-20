@@ -11,10 +11,11 @@ all:
 
 builddeps:
 	sudo yum install -y rpm-build gcc autoconf make automake libtool libasan rpmdevtools pam-devel \
-		python34 python34-devel python34-setuptools python34-six \
+		python34 python34-devel python34-setuptools python34-six httpd-devel \
 		`grep "^BuildRequires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | awk '{ print $$2 }' | grep -v "^/"`
 	sudo /usr/bin/easy_install-3.4 pip
-	sudo pip3.4 install pyasn1 pyasn1-modules
+	sudo pip3.4 install pyasn1 pyasn1-modules flask python-dateutil mod_wsgi
+	echo "LoadModule wsgi_module /usr/lib64/python3.4/site-packages/mod_wsgi/server/mod_wsgi-py34.cpython-34m.so" | sudo tee /etc/httpd/conf.modules.d/10-wsgi.conf
 
 clean: ds-clean nunc-stans-clean svrcore-clean
 
@@ -99,6 +100,9 @@ ds-srpms: ds-configure
 
 ds-setup:
 	sudo /opt/dirsrv/sbin/setup-ds.pl --silent --debug --file=$(DEVDIR)/setup.inf General.FullMachineName=$$(hostname)
+
+ds-setup-py:
+	sudo /usr/sbin/ds-rest-setup -f /usr/share/rest389/examples/ds-setup-rest-admin.inf --IsolemnlyswearthatIamuptonogood -v
 
 rest389: lib389
 	cd $(DEVDIR)/rest389/ && $(PYTHON) setup.py build
