@@ -152,6 +152,7 @@ pull:
 	cd rest389; git pull
 	cd nunc-stans; git pull
 	cd svrcore; git pull
+	cd pyldap; git pull
 
 github-commit:
 	echo you should be on the master branches here!
