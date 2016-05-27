@@ -20,7 +20,7 @@ builddeps-el7:
 builddeps-fedora:
 	sudo yum install -y rpm-build gcc autoconf make automake libtool libasan rpmdevtools pam-devel \
 		python3 python3-devel python3-setuptools python3-six httpd-devel python3-mod_wsgi \
-		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask \
+		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask python-nss \
 		`grep "^BuildRequires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | awk '{ print $$2 }' | grep -v "^/"`
 
 clean: ds-clean nunc-stans-clean svrcore-clean
@@ -84,7 +84,7 @@ ds-configure:
 	cd $(DEVDIR)/ds && autoreconf --force
 	mkdir -p $(BUILDDIR)/ds/
 	# -Wlogical-op  -Wduplicated-cond  -Wshift-overflow=2  -Wnull-dereference
-	cd $(BUILDDIR)/ds/ && CFLAGS="-O0 -Wall -Wextra -Wunused -Wno-unused-parameter" $(DEVDIR)/ds/configure --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-auto-dn-suffix --enable-autobind --with-systemd --with-journald
+	cd $(BUILDDIR)/ds/ && CFLAGS="-O0 -Wall -Wextra -Wunused -Wno-unused-parameter" $(DEVDIR)/ds/configure --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-auto-dn-suffix --enable-autobind --with-systemd # --with-journald
 
 ds: lib389 svrcore nunc-stans ds-configure
 	make -C $(BUILDDIR)/ds 1> /tmp/buildlog
@@ -107,7 +107,7 @@ ds-srpms: ds-configure
 ds-setup:
 	sudo /opt/dirsrv/sbin/setup-ds.pl --silent --debug --file=$(DEVDIR)/setup.inf General.FullMachineName=$$(hostname)
 
-ds-setup-py:
+ds-setup-py: rest389
 	sudo /usr/sbin/ds-rest-setup -f /usr/share/rest389/examples/ds-setup-rest-admin.inf --IsolemnlyswearthatIamuptonogood -v
 
 rest389: lib389
