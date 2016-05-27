@@ -136,6 +136,7 @@ clone:
 	git clone ssh://git.fedorahosted.org/git/389/lib389.git
 	git clone ssh://git.fedorahosted.org/git/rest389.git
 	git clone ssh://git@pagure.io/svrcore.git
+	#git clone ssh://github.com/pyldap/pyldap.git
 
 clone-anon:
 	git clone https://git.fedorahosted.org/git/389/ds.git
@@ -143,6 +144,7 @@ clone-anon:
 	git clone https://git.fedorahosted.org/git/389/lib389.git
 	git clone https://git.fedorahosted.org/git/rest389.git
 	git clone https://pagure.io/svrcore.git
+	git clone https://github.com/pyldap/pyldap.git
 
 pull:
 	cd ds; git pull
