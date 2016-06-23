@@ -11,7 +11,7 @@ all:
 
 builddeps-el7:
 	sudo yum install -y rpm-build gcc autoconf make automake libtool libasan rpmdevtools pam-devel \
-		python34 python34-devel python34-setuptools python34-six httpd-devel \
+		python34 python34-devel python34-setuptools python34-six httpd-devel python-pep8 \
 		`grep "^BuildRequires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | awk '{ print $$2 }' | grep -v "^/"`
 	sudo /usr/bin/easy_install-3.4 pip
 	sudo pip3.4 install pyasn1 pyasn1-modules flask python-dateutil mod_wsgi
@@ -20,8 +20,8 @@ builddeps-el7:
 builddeps-fedora:
 	sudo yum install -y rpm-build gcc autoconf make automake libtool libasan rpmdevtools pam-devel \
 		python3 python3-devel python3-setuptools python3-six httpd-devel python3-mod_wsgi \
-		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask python-nss \
-		`grep "^BuildRequires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | awk '{ print $$2 }' | grep -v "^/"`
+		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask python3-nss python3-pytest python3-pep8 \
+		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
 
 clean: ds-clean nunc-stans-clean svrcore-clean
 
@@ -30,8 +30,8 @@ pyldap:
 	cd $(DEVDIR)/pyldap/ && sudo $(PYTHON) setup.py install --force --root=/
 
 lib389: pyldap
-	make -C $(DEVDIR)/lib389/ build
-	sudo make -C $(DEVDIR)/lib389/ install
+	make -C $(DEVDIR)/lib389/ build PYTHON=$(PYTHON)
+	sudo make -C $(DEVDIR)/lib389/ install PYTHON=$(PYTHON)
 
 lib389-rpmbuild-prep:
 	make -C $(DEVDIR)/lib389/ rpmbuild-prep
@@ -111,8 +111,8 @@ ds-setup-py: rest389
 	sudo /usr/sbin/ds-rest-setup -f /usr/share/rest389/examples/ds-setup-rest-admin.inf --IsolemnlyswearthatIamuptonogood -v
 
 rest389: lib389
-	cd $(DEVDIR)/rest389/ && $(PYTHON) setup.py build
-	cd $(DEVDIR)/rest389/ && sudo $(PYTHON) setup.py install --force --root=/
+	make -C $(DEVDIR)/rest389/ build PYTHON=$(PYTHON)
+	sudo make -C $(DEVDIR)/rest389/ install PYTHON=$(PYTHON)
 
 rest389-rpmbuild-prep:
 	mkdir -p $(DEVDIR)/rest389/dist
@@ -130,11 +130,28 @@ rest389-rpms: rest389-rpmbuild-prep
 	rpmbuild -bb $(DEVDIR)/rest389/python-rest389.spec
 	cp ~/rpmbuild/RPMS/noarch/python-rest389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
 
+idm389: lib389
+	make -C $(DEVDIR)/idm389/ build PYTHON=$(PYTHON)
+	sudo make -C $(DEVDIR)/idm389/ install PYTHON=$(PYTHON)
+
+idm389-rpmbuild-prep:
+	make -C $(DEVDIR)/idm389/ rpmbuild-prep
+
+idm389-srpms: idm389-rpmbuild-prep
+	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
+	make -C $(DEVDIR)/idm389/ srpm
+	cp $(DEVDIR)/idm389/dist/python-idm389*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
+
+idm389-rpms: idm389-rpmbuild-prep
+	make -C $(DEVDIR)/idm389/ rpm
+	cp ~/rpmbuild/RPMS/noarch/python-idm389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
+
 clone:
 	git clone ssh://git.fedorahosted.org/git/389/ds.git
 	git clone ssh://git.fedorahosted.org/git/nunc-stans.git
 	git clone ssh://git.fedorahosted.org/git/389/lib389.git
 	git clone ssh://git.fedorahosted.org/git/rest389.git
+	git clone ssh://git@github.com:Firstyear/idm389.git
 	git clone ssh://git@pagure.io/svrcore.git
 	#git clone ssh://github.com/pyldap/pyldap.git
 
@@ -143,6 +160,7 @@ clone-anon:
 	git clone https://git.fedorahosted.org/git/nunc-stans.git
 	git clone https://git.fedorahosted.org/git/389/lib389.git
 	git clone https://git.fedorahosted.org/git/rest389.git
+	git clone https://github.com/Firstyear/idm389.git
 	git clone https://pagure.io/svrcore.git
 	git clone https://github.com/pyldap/pyldap.git
 
@@ -150,6 +168,7 @@ pull:
 	cd ds; git pull
 	cd lib389; git pull
 	cd rest389; git pull
+	cd idm389; git pull
 	cd nunc-stans; git pull
 	cd svrcore; git pull
 	cd pyldap; git pull
@@ -158,19 +177,21 @@ github-commit:
 	echo you should be on the master branches here!
 	cd ds; git push github
 	cd lib389; git push github
+	cd idm389; git push github
 	cd rest389; git push github
 	cd svrcore; git push github
 	cd nunc-stans; git push github
 
-rpms: ds-rpms lib389-rpms rest389-rpms svrcore-rpms
+rpms: ds-rpms lib389-rpms rest389-rpms idm389-rpms svrcore-rpms
 
-srpms: ds-srpms lib389-srpms rest389-srpms svrcore-srpms
+srpms: ds-srpms lib389-srpms rest389-srpms idm389-srpms svrcore-srpms
 
 # Is there a nicer way to do this?
 copr-wait:
 	# Upload all the sprms to copr as builds
 	copr-cli build lib389 `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-lib389*.src.rpm | head -n 1`
 	copr-cli build rest389 `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-rest389*.src.rpm | head -n 1`
+	copr-cli build idm389 `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-idm389*.src.rpm | head -n 1`
 	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/389-ds-base*.src.rpm | head -n 1`
 	copr-cli build svrcore `ls -1t $(DEVDIR)/rpmbuild/SRPMS/svrcore*.src.rpm | head -n 1`
 
@@ -178,6 +199,7 @@ copr:
 	# Upload all the sprms to copr as builds
 	copr-cli build lib389 --nowait `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-lib389*.src.rpm | head -n 1`
 	copr-cli build rest389 --nowait `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-rest389*.src.rpm | head -n 1`
+	copr-cli build idm389 --nowait `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-idm389*.src.rpm | head -n 1`
 	copr-cli build ds --nowait `ls -1t $(DEVDIR)/rpmbuild/SRPMS/389-ds-base*.src.rpm | head -n 1`
 	copr-cli build svrcore --nowait `ls -1t $(DEVDIR)/rpmbuild/SRPMS/svrcore*.src.rpm | head -n 1`
 
