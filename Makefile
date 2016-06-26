@@ -23,7 +23,7 @@ builddeps-fedora:
 		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask python3-nss python3-pytest python3-pep8 \
 		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
 
-clean: ds-clean nunc-stans-clean svrcore-clean
+clean: ds-clean nunc-stans-clean svrcore-clean srpms-clean
 
 pyldap:
 	cd $(DEVDIR)/pyldap/ && $(PYTHON) setup.py build
@@ -183,6 +183,9 @@ github-commit:
 	cd nunc-stans; git push github
 
 rpms: ds-rpms lib389-rpms rest389-rpms idm389-rpms svrcore-rpms
+
+srpms-clean:
+	rm $(DEVDIR)/rpmbuild/SRPMS/*
 
 srpms: ds-srpms lib389-srpms rest389-srpms idm389-srpms svrcore-srpms
 
