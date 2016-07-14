@@ -10,15 +10,15 @@ all:
 	echo "make ds|nunc-stans|lib389|ds-setup"
 
 builddeps-el7:
-	sudo yum install -y rpm-build gcc autoconf make automake libtool libasan rpmdevtools pam-devel \
+	sudo yum install -y rpm-build gcc autoconf make automake libtool libasan rpmdevtools pam-devel libcmocka libcmocka-devel \
 		python34 python34-devel python34-setuptools python34-six httpd-devel python-pep8 \
-		`grep "^BuildRequires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | awk '{ print $$2 }' | grep -v "^/"`
+		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
 	sudo /usr/bin/easy_install-3.4 pip
 	sudo pip3.4 install pyasn1 pyasn1-modules flask python-dateutil mod_wsgi
 	echo "LoadModule wsgi_module /usr/lib64/python3.4/site-packages/mod_wsgi/server/mod_wsgi-py34.cpython-34m.so" | sudo tee /etc/httpd/conf.modules.d/10-wsgi.conf
 
 builddeps-fedora:
-	sudo yum install -y rpm-build gcc autoconf make automake libtool libasan rpmdevtools pam-devel \
+	sudo yum install -y rpm-build gcc autoconf make automake libtool libasan rpmdevtools pam-devel american-fuzzy-lop libcmocka libcmocka-devel \
 		python3 python3-devel python3-setuptools python3-six httpd-devel python3-mod_wsgi \
 		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask python3-nss python3-pytest python3-pep8 \
 		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
@@ -48,7 +48,8 @@ lib389-rpms: lib389-rpmbuild-prep
 nunc-stans-configure:
 	cd $(DEVDIR)/nunc-stans/ && autoreconf --force --install
 	mkdir -p $(BUILDDIR)/nunc-stans
-	cd $(BUILDDIR)/nunc-stans && $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv
+	# cd $(BUILDDIR)/nunc-stans && CFLAGS="-DDEBUG -DDEBUG_FSM -g3 -fsanitize=address -fno-omit-frame-pointer -lasan" $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv
+	cd $(BUILDDIR)/nunc-stans && CFLAGS="-DDEBUG -g3 -fsanitize=address -fno-omit-frame-pointer -lasan" $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv
 
 nunc-stans: nunc-stans-configure
 	make -C $(BUILDDIR)/nunc-stans/

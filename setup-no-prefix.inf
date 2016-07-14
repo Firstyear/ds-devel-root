@@ -2,8 +2,9 @@
 [General]
 FullMachineName = localhost.localdomain
 ServerRoot = /lib/dirsrv
-SuiteSpotGroup = nobody
-SuiteSpotUserID = nobody
+SuiteSpotGroup = dirsrv
+SuiteSpotUserID = dirsrv
+StrictHostCheck = false
 [slapd]
 AddOrgEntries = Yes
 AddSampleEntries = No
