@@ -48,8 +48,8 @@ lib389-rpms: lib389-rpmbuild-prep
 nunc-stans-configure:
 	cd $(DEVDIR)/nunc-stans/ && autoreconf --force --install
 	mkdir -p $(BUILDDIR)/nunc-stans
-	cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" CFLAGS="-g3 -fsanitize=address -fno-omit-frame-pointer -lasan" $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv
-	#cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" CFLAGS="-DDEBUG -DDEBUG_FSM -g3 -fsanitize=address -fno-omit-frame-pointer -lasan" $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv
+	# cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" CFLAGS="-g3 -fsanitize=address -fno-omit-frame-pointer -lasan" $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv
+	cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" CFLAGS="-DDEBUG -DDEBUG_FSM -g3 -fsanitize=address -fno-omit-frame-pointer -lasan" $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv
 
 nunc-stans: nunc-stans-configure
 	make -C $(BUILDDIR)/nunc-stans/
