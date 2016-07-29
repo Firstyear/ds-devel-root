@@ -48,8 +48,8 @@ lib389-rpms: lib389-rpmbuild-prep
 nunc-stans-configure:
 	cd $(DEVDIR)/nunc-stans/ && autoreconf --force --install
 	mkdir -p $(BUILDDIR)/nunc-stans
-	cd $(BUILDDIR)/nunc-stans && CFLAGS="-DDEBUG -DDEBUG_FSM -g3 -fsanitize=address -fno-omit-frame-pointer -lasan" $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv
-	# cd $(BUILDDIR)/nunc-stans && CFLAGS="-DDEBUG -g3 -fsanitize=address -fno-omit-frame-pointer -lasan" $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv
+	cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" CFLAGS="-g3 -fsanitize=address -fno-omit-frame-pointer -lasan" $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv
+	#cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" CFLAGS="-DDEBUG -DDEBUG_FSM -g3 -fsanitize=address -fno-omit-frame-pointer -lasan" $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv
 
 nunc-stans: nunc-stans-configure
 	make -C $(BUILDDIR)/nunc-stans/
@@ -176,12 +176,12 @@ pull:
 
 github-commit:
 	echo you should be on the master branches here!
-	cd ds; git push github
-	cd lib389; git push github
-	cd idm389; git push github
-	cd rest389; git push github
-	cd svrcore; git push github
-	cd nunc-stans; git push github
+	cd ds; git push github master
+	cd lib389; git push github master
+	cd idm389; git push origin master
+	cd rest389; git push github master
+	cd svrcore; git push github master
+	cd nunc-stans; git push github master
 
 rpms: ds-rpms lib389-rpms rest389-rpms idm389-rpms svrcore-rpms
 
