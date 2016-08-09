@@ -80,6 +80,9 @@ svrcore-srpms: svrcore-configure
 	make -C $(BUILDDIR)/svrcore srpm
 	cp $(BUILDDIR)/svrcore/rpmbuild/SRPMS/svrcore*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
+svrcore-rpms-install:
+	sudo yum -y upgrade $(DEVDIR)/rpmbuild/RPMS/x86_64/svrcore*.rpm
+
 # Can I improve this to not need svrcore?
 ds-configure: 
 	cd $(DEVDIR)/ds && autoreconf --force
@@ -110,6 +113,9 @@ ds-setup:
 
 ds-setup-py: rest389
 	sudo /usr/sbin/ds-rest-setup -f /usr/share/rest389/examples/ds-setup-rest-admin.inf --IsolemnlyswearthatIamuptonogood -v
+
+ds-setup-py2: rest389
+	sudo PYTHONPATH=$(DEVDIR)/lib389:$(DEVDIR)/rest389 python2 /usr/sbin/ds-rest-setup -f /usr/share/rest389/examples/ds-setup-rest-admin.inf --IsolemnlyswearthatIamuptonogood -v
 
 rest389: lib389
 	make -C $(DEVDIR)/rest389/ build PYTHON=$(PYTHON)
@@ -183,7 +189,8 @@ github-commit:
 	cd svrcore; git push github master
 	cd nunc-stans; git push github master
 
-rpms: ds-rpms lib389-rpms rest389-rpms idm389-rpms svrcore-rpms
+# idm389-rpms
+rpms: svrcore-rpms svrcore-rpms-install lib389-rpms rest389-rpms ds-rpms
 
 srpms-clean:
 	rm $(DEVDIR)/rpmbuild/SRPMS/*
