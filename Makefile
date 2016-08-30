@@ -6,6 +6,22 @@ LIB389_VERS ?= $(shell cat ./lib389/VERSION | head -n 1)
 REST389_VERS ?= $(shell cat ./rest389/VERSION | head -n 1)
 PYTHON ?= /usr/bin/python3
 
+ASAN ?= true
+
+# -Wlogical-op  -Wduplicated-cond  -Wshift-overflow=2  -Wnull-dereference
+
+ifeq ($(ASAN), true)
+ns_cflags = "-DDEBUG -DDEBUG_FSM -g3 -Wall -Wextra -Wunused -fsanitize=address -fno-omit-frame-pointer -lasan"
+ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare"
+ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-auto-dn-suffix --enable-autobind --with-systemd
+svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd --enable-asan
+else
+ns_cflags = "-DDEBUG -DDEBUG_FSM -g3 -Wall -Wextra -Wunused"
+ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare"
+ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind --with-systemd
+svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd
+endif
+
 all:
 	echo "make ds|nunc-stans|lib389|ds-setup"
 
@@ -48,8 +64,7 @@ lib389-rpms: lib389-rpmbuild-prep
 nunc-stans-configure:
 	cd $(DEVDIR)/nunc-stans/ && autoreconf --force --install
 	mkdir -p $(BUILDDIR)/nunc-stans
-	# cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" CFLAGS="-g3 -fsanitize=address -fno-omit-frame-pointer -lasan" $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv
-	cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" CFLAGS="-DDEBUG -DDEBUG_FSM -g3 -fsanitize=address -fno-omit-frame-pointer -lasan" $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv
+	cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" CFLAGS=$(ns_cflags) $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv
 
 nunc-stans: nunc-stans-configure
 	make -C $(BUILDDIR)/nunc-stans/
@@ -62,7 +77,7 @@ nunc-stans-clean:
 svrcore-configure:
 	cd $(DEVDIR)/svrcore/ && autoreconf --force --install
 	mkdir -p $(BUILDDIR)/svrcore
-	cd $(BUILDDIR)/svrcore && $(DEVDIR)/svrcore/configure --prefix=/opt/dirsrv --enable-debug --with-systemd #--enable-asan
+	cd $(BUILDDIR)/svrcore && $(DEVDIR)/svrcore/configure $(svrcore_cflags)
 
 svrcore: svrcore-configure
 	make -C $(BUILDDIR)/svrcore
@@ -81,14 +96,13 @@ svrcore-srpms: svrcore-configure
 	cp $(BUILDDIR)/svrcore/rpmbuild/SRPMS/svrcore*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
 svrcore-rpms-install:
-	sudo yum -y upgrade $(DEVDIR)/rpmbuild/RPMS/x86_64/svrcore*.rpm
+	sudo yum -y upgrade $(DEVDIR)/rpmbuild/RPMS/x86_64/svrcore*.rpm; true
 
 # Can I improve this to not need svrcore?
 ds-configure: 
 	cd $(DEVDIR)/ds && autoreconf --force
 	mkdir -p $(BUILDDIR)/ds/
-	# -Wlogical-op  -Wduplicated-cond  -Wshift-overflow=2  -Wnull-dereference
-	cd $(BUILDDIR)/ds/ && CFLAGS="-O0 -Wall -Wextra -Wunused -Wno-unused-parameter" $(DEVDIR)/ds/configure --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-auto-dn-suffix --enable-autobind --with-systemd # --with-journald
+	cd $(BUILDDIR)/ds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/ds/configure $(ds_confflags)
 
 ds: lib389 svrcore nunc-stans ds-configure
 	make -C $(BUILDDIR)/ds 1> /tmp/buildlog
@@ -112,10 +126,10 @@ ds-setup:
 	sudo /opt/dirsrv/sbin/setup-ds.pl --silent --debug --file=$(DEVDIR)/setup.inf General.FullMachineName=$$(hostname)
 
 ds-setup-py: rest389
-	sudo /usr/sbin/ds-rest-setup -f /usr/share/rest389/examples/ds-setup-rest-admin.inf --IsolemnlyswearthatIamuptonogood -v
+	sudo PYTHONPATH=$(DEVDIR)/lib389:$(DEVDIR)/rest389 PREFIX=/opt/dirsrv /usr/sbin/dsadm -v instance create -f /usr/share/rest389/examples/ds-setup-rest-admin.inf --IsolemnlyswearthatIamuptonogood
 
 ds-setup-py2: rest389
-	sudo PYTHONPATH=$(DEVDIR)/lib389:$(DEVDIR)/rest389 python2 /usr/sbin/ds-rest-setup -f /usr/share/rest389/examples/ds-setup-rest-admin.inf --IsolemnlyswearthatIamuptonogood -v
+	sudo PYTHONPATH=$(DEVDIR)/lib389:$(DEVDIR)/rest389 PREFIX=/opt/dirsrv python2 /usr/sbin/ds-rest-setup -f /usr/share/rest389/examples/ds-setup-rest-admin.inf --IsolemnlyswearthatIamuptonogood -v
 
 rest389: lib389
 	make -C $(DEVDIR)/rest389/ build PYTHON=$(PYTHON)
@@ -190,7 +204,7 @@ github-commit:
 	cd nunc-stans; git push github master
 
 # idm389-rpms
-rpms: svrcore-rpms svrcore-rpms-install lib389-rpms rest389-rpms ds-rpms
+rpms: svrcore-rpms svrcore-rpms-install lib389-rpms rest389-rpms ds-rpms idm389-rpms
 
 srpms-clean:
 	rm $(DEVDIR)/rpmbuild/SRPMS/*
