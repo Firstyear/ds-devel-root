@@ -114,7 +114,11 @@ ds: lib389 svrcore nunc-stans ds-configure
 	$(MAKE) -C $(BUILDDIR)/ds 1> /tmp/buildlog
 	sudo $(MAKE) -C $(BUILDDIR)/ds install 1>> /tmp/buildlog
 
-ds-fbsd: lib389 svrcore ds-configure
+# Self contained freebsd build, due to the (temporary) differences.
+ds-fbsd: lib389 svrcore
+	cd $(DEVDIR)/ds && autoreconf --force
+	mkdir -p $(BUILDDIR)/ds/
+	cd $(BUILDDIR)/ds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/ds/configure --enable-debug --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind--with-openldap=/usr/local --with-db --with-db-inc=/usr/local/include/db5/ --with-db-lib=/usr/local/lib/db5/ --with-sasl --with-sasl-inc=/usr/local/include/sasl/ --with-sasl-lib=/usr/local/lib/sasl2/ --with-netsnmp=/usr/local
 	$(MAKE) -C $(BUILDDIR)/ds 1> /tmp/buildlog
 	sudo $(MAKE) -C $(BUILDDIR)/ds install 1>> /tmp/buildlog
 
