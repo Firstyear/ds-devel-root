@@ -41,7 +41,7 @@ builddeps-fedora:
 		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
 
 builddeps-freebsd:
-	sudo pkg install autotools git openldap-client db5 cyrus-sasl pkgconf nspr nss net-snmp gmake python34
+	sudo pkg install autotools git openldap-client db5 cyrus-sasl pkgconf nspr nss net-snmp gmake python34 gcc6
 	sudo python3.4 -m ensurepip
 	sudo pip3.4 install six pyasn1 pyasn1-modules
 
@@ -111,6 +111,10 @@ ds-configure:
 	cd $(BUILDDIR)/ds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/ds/configure $(ds_confflags)
 
 ds: lib389 svrcore nunc-stans ds-configure
+	$(MAKE) -C $(BUILDDIR)/ds 1> /tmp/buildlog
+	sudo $(MAKE) -C $(BUILDDIR)/ds install 1>> /tmp/buildlog
+
+ds-fbsd: lib389 svrcore ds-configure
 	$(MAKE) -C $(BUILDDIR)/ds 1> /tmp/buildlog
 	sudo $(MAKE) -C $(BUILDDIR)/ds install 1>> /tmp/buildlog
 
