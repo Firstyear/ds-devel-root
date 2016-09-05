@@ -12,12 +12,12 @@ ASAN ?= true
 
 ifeq ($(ASAN), true)
 ns_cflags = "-DDEBUG -DDEBUG_FSM -g3 -Wall -Wextra -Wunused -fsanitize=address -fno-omit-frame-pointer -lasan"
-ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare"
+ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-prototypes"
 ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-auto-dn-suffix --enable-autobind --with-systemd
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd --enable-asan
 else
 ns_cflags = "-DDEBUG -DDEBUG_FSM -g3 -Wall -Wextra -Wunused"
-ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare"
+ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-prototypes"
 ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind --with-systemd
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd
 endif
