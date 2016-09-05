@@ -43,7 +43,7 @@ builddeps-fedora:
 builddeps-freebsd:
 	sudo pkg install autotools git openldap-client db5 cyrus-sasl pkgconf nspr nss net-snmp gmake python34 gcc6
 	sudo python3.4 -m ensurepip
-	sudo pip3.4 install six pyasn1 pyasn1-modules
+	sudo pip3.4 install six pyasn1 pyasn1-modules pytest python-dateutil
 
 clean: ds-clean nunc-stans-clean svrcore-clean srpms-clean
 
@@ -118,9 +118,10 @@ ds: lib389 svrcore nunc-stans ds-configure
 ds-fbsd: lib389 svrcore
 	cd $(DEVDIR)/ds && autoreconf --force
 	mkdir -p $(BUILDDIR)/ds/
-	cd $(BUILDDIR)/ds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/ds/configure --enable-debug --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind--with-openldap=/usr/local --with-db --with-db-inc=/usr/local/include/db5/ --with-db-lib=/usr/local/lib/db5/ --with-sasl --with-sasl-inc=/usr/local/include/sasl/ --with-sasl-lib=/usr/local/lib/sasl2/ --with-netsnmp=/usr/local
+	cd $(BUILDDIR)/ds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/ds/configure --enable-debug --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind --with-openldap=/usr/local --with-db --with-db-inc=/usr/local/include/db5/ --with-db-lib=/usr/local/lib/db5/ --with-sasl --with-sasl-inc=/usr/local/include/sasl/ --with-sasl-lib=/usr/local/lib/sasl2/ --with-netsnmp=/usr/local --with-kerberos-impl=mit --with-kerberos=/usr/local/
 	$(MAKE) -C $(BUILDDIR)/ds 1> /tmp/buildlog
 	sudo $(MAKE) -C $(BUILDDIR)/ds install 1>> /tmp/buildlog
+	sudo mkdir -p /opt/dirsrv/etc/sysconfig/
 
 ds-clean:
 	$(MAKE) -C $(BUILDDIR)/ds clean
