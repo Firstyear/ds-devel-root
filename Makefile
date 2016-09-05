@@ -5,6 +5,7 @@ BUILDDIR ?= ~/build
 LIB389_VERS ?= $(shell cat ./lib389/VERSION | head -n 1)
 REST389_VERS ?= $(shell cat ./rest389/VERSION | head -n 1)
 PYTHON ?= /usr/bin/python3
+MAKE ?= make
 
 ASAN ?= true
 
@@ -39,6 +40,11 @@ builddeps-fedora:
 		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask python3-nss python3-pytest python3-pep8 \
 		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
 
+builddeps-freebsd:
+	sudo pkg install autotools git openldap-client db5 cyrus-sasl pkgconf nspr nss net-snmp gmake python34
+	sudo python3.4 -m ensurepip
+	sudo pip3.4 install six pyasn1 pyasn1-modules
+
 clean: ds-clean nunc-stans-clean svrcore-clean srpms-clean
 
 pyldap:
@@ -46,19 +52,19 @@ pyldap:
 	cd $(DEVDIR)/pyldap/ && sudo $(PYTHON) setup.py install --force --root=/
 
 lib389: pyldap
-	make -C $(DEVDIR)/lib389/ build PYTHON=$(PYTHON)
-	sudo make -C $(DEVDIR)/lib389/ install PYTHON=$(PYTHON)
+	$(MAKE) -C $(DEVDIR)/lib389/ build PYTHON=$(PYTHON)
+	sudo $(MAKE) -C $(DEVDIR)/lib389/ install PYTHON=$(PYTHON)
 
 lib389-rpmbuild-prep:
-	make -C $(DEVDIR)/lib389/ rpmbuild-prep
+	$(MAKE) -C $(DEVDIR)/lib389/ rpmbuild-prep
 
 lib389-srpms: lib389-rpmbuild-prep
 	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
-	make -C $(DEVDIR)/lib389/ srpm
+	$(MAKE) -C $(DEVDIR)/lib389/ srpm
 	cp $(DEVDIR)/lib389/dist/python-lib389*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
 lib389-rpms: lib389-rpmbuild-prep
-	make -C $(DEVDIR)/lib389/ rpm
+	$(MAKE) -C $(DEVDIR)/lib389/ rpm
 	cp ~/rpmbuild/RPMS/noarch/python-lib389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
 
 nunc-stans-configure:
@@ -67,12 +73,12 @@ nunc-stans-configure:
 	cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" CFLAGS=$(ns_cflags) $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv
 
 nunc-stans: nunc-stans-configure
-	make -C $(BUILDDIR)/nunc-stans/
-	sudo make -C $(BUILDDIR)/nunc-stans/ install
+	$(MAKE) -C $(BUILDDIR)/nunc-stans/
+	sudo $(MAKE) -C $(BUILDDIR)/nunc-stans/ install
 	sudo cp $(DEVDIR)/nunc-stans/liblfds/bin/* /opt/dirsrv/lib/
 
 nunc-stans-clean:
-	make -C $(BUILDDIR)/nunc-stans/ clean
+	$(MAKE) -C $(BUILDDIR)/nunc-stans/ clean
 
 svrcore-configure:
 	cd $(DEVDIR)/svrcore/ && autoreconf --force --install
@@ -80,19 +86,19 @@ svrcore-configure:
 	cd $(BUILDDIR)/svrcore && $(DEVDIR)/svrcore/configure $(svrcore_cflags)
 
 svrcore: svrcore-configure
-	make -C $(BUILDDIR)/svrcore
-	sudo make -C $(BUILDDIR)/svrcore install
+	$(MAKE) -C $(BUILDDIR)/svrcore
+	sudo $(MAKE) -C $(BUILDDIR)/svrcore install
 
 svrcore-clean:
-	make -C $(BUILDDIR)/svrcore clean
+	$(MAKE) -C $(BUILDDIR)/svrcore clean
 
 svrcore-rpms: svrcore-configure
-	make -C $(BUILDDIR)/svrcore rpms
+	$(MAKE) -C $(BUILDDIR)/svrcore rpms
 	cp $(BUILDDIR)/svrcore/rpmbuild/RPMS/x86_64/svrcore*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/
 
 svrcore-srpms: svrcore-configure
 	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
-	make -C $(BUILDDIR)/svrcore srpm
+	$(MAKE) -C $(BUILDDIR)/svrcore srpm
 	cp $(BUILDDIR)/svrcore/rpmbuild/SRPMS/svrcore*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
 svrcore-rpms-install:
@@ -105,21 +111,21 @@ ds-configure:
 	cd $(BUILDDIR)/ds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/ds/configure $(ds_confflags)
 
 ds: lib389 svrcore nunc-stans ds-configure
-	make -C $(BUILDDIR)/ds 1> /tmp/buildlog
-	sudo make -C $(BUILDDIR)/ds install 1>> /tmp/buildlog
+	$(MAKE) -C $(BUILDDIR)/ds 1> /tmp/buildlog
+	sudo $(MAKE) -C $(BUILDDIR)/ds install 1>> /tmp/buildlog
 
 ds-clean:
-	make -C $(BUILDDIR)/ds clean
+	$(MAKE) -C $(BUILDDIR)/ds clean
 
 ds-rpms: ds-configure
-	make -C $(BUILDDIR)/ds rpmsources
-	make -C $(BUILDDIR)/ds rpms
+	$(MAKE) -C $(BUILDDIR)/ds rpmsources
+	$(MAKE) -C $(BUILDDIR)/ds rpms
 	cp $(BUILDDIR)/ds/rpmbuild/RPMS/x86_64/389-ds-base*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/
 
 ds-srpms: ds-configure
 	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
-	make -C $(BUILDDIR)/ds rpmsources
-	make -C $(BUILDDIR)/ds srpm
+	$(MAKE) -C $(BUILDDIR)/ds rpmsources
+	$(MAKE) -C $(BUILDDIR)/ds srpm
 	cp $(BUILDDIR)/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
 ds-setup:
@@ -132,8 +138,8 @@ ds-setup-py2: rest389
 	sudo PYTHONPATH=$(DEVDIR)/lib389:$(DEVDIR)/rest389 PREFIX=/opt/dirsrv python2 /usr/sbin/ds-rest-setup -f /usr/share/rest389/examples/ds-setup-rest-admin.inf --IsolemnlyswearthatIamuptonogood -v
 
 rest389: lib389
-	make -C $(DEVDIR)/rest389/ build PYTHON=$(PYTHON)
-	sudo make -C $(DEVDIR)/rest389/ install PYTHON=$(PYTHON)
+	$(MAKE) -C $(DEVDIR)/rest389/ build PYTHON=$(PYTHON)
+	sudo $(MAKE) -C $(DEVDIR)/rest389/ install PYTHON=$(PYTHON)
 
 rest389-rpmbuild-prep:
 	mkdir -p $(DEVDIR)/rest389/dist
@@ -152,19 +158,19 @@ rest389-rpms: rest389-rpmbuild-prep
 	cp ~/rpmbuild/RPMS/noarch/python-rest389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
 
 idm389: lib389
-	make -C $(DEVDIR)/idm389/ build PYTHON=$(PYTHON)
-	sudo make -C $(DEVDIR)/idm389/ install PYTHON=$(PYTHON)
+	$(MAKE) -C $(DEVDIR)/idm389/ build PYTHON=$(PYTHON)
+	sudo $(MAKE) -C $(DEVDIR)/idm389/ install PYTHON=$(PYTHON)
 
 idm389-rpmbuild-prep:
-	make -C $(DEVDIR)/idm389/ rpmbuild-prep
+	$(MAKE) -C $(DEVDIR)/idm389/ rpmbuild-prep
 
 idm389-srpms: idm389-rpmbuild-prep
 	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
-	make -C $(DEVDIR)/idm389/ srpm
+	$(MAKE) -C $(DEVDIR)/idm389/ srpm
 	cp $(DEVDIR)/idm389/dist/python-idm389*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
 idm389-rpms: idm389-rpmbuild-prep
-	make -C $(DEVDIR)/idm389/ rpm
+	$(MAKE) -C $(DEVDIR)/idm389/ rpm
 	cp ~/rpmbuild/RPMS/noarch/python-idm389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
 
 clone:
