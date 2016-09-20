@@ -11,15 +11,16 @@ ASAN ?= true
 
 # -Wlogical-op  -Wduplicated-cond  -Wshift-overflow=2  -Wnull-dereference
 
+# Need to add -flto!
+
 ifeq ($(ASAN), true)
-ns_cflags = "-DDEBUG -DDEBUG_FSM -g3 -Wall -Wextra -Wunused -fsanitize=address -fno-omit-frame-pointer -lasan"
-# ns_cflags = "-g3 -Wall -Wextra -Wunused -fsanitize=address -fno-omit-frame-pointer -lasan"
-ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-prototypes"
+ns_cflags = "-O0 -Wall -Wextra -Wunused -fsanitize=address -fno-omit-frame-pointer -lasan -Wstrict-overflow -fno-strict-aliasing"
+ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-prototypes -Wpedantic -Wstrict-overflow -fno-strict-aliasing "
 ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-auto-dn-suffix --enable-autobind --with-systemd
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd --enable-asan
 else
-ns_cflags = "-DDEBUG -DDEBUG_FSM -g3 -Wall -Wextra -Wunused"
-ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-prototypes"
+ns_cflags = "-Wall -Wextra -Wunused -Wstrict-overflow -fno-strict-aliasing"
+ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-prototypes -Wpedantic -Wstrict-overflow -fno-strict-aliasing"
 ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind --with-systemd
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd
 endif
@@ -28,7 +29,7 @@ all:
 	echo "make ds|nunc-stans|lib389|ds-setup"
 
 builddeps-el7:
-	sudo yum install -y rpm-build gcc autoconf make automake libtool libasan rpmdevtools pam-devel libcmocka libcmocka-devel \
+	sudo yum install -y --skip-broken rpm-build gcc autoconf make automake libtool libasan rpmdevtools pam-devel libcmocka libcmocka-devel krb5-server \
 		python34 python34-devel python34-setuptools python34-six httpd-devel python-pep8 \
 		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
 	sudo /usr/bin/easy_install-3.4 pip
@@ -36,7 +37,7 @@ builddeps-el7:
 	echo "LoadModule wsgi_module /usr/lib64/python3.4/site-packages/mod_wsgi/server/mod_wsgi-py34.cpython-34m.so" | sudo tee /etc/httpd/conf.modules.d/10-wsgi.conf
 
 builddeps-fedora:
-	sudo yum install -y rpm-build gcc autoconf make automake libtool libasan rpmdevtools pam-devel american-fuzzy-lop libcmocka libcmocka-devel \
+	sudo yum install -y --skip-broken rpm-build gcc autoconf make automake libtool libasan rpmdevtools pam-devel american-fuzzy-lop libcmocka libcmocka-devel krb5-server \
 		python3 python3-devel python3-setuptools python3-six httpd-devel python3-mod_wsgi \
 		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask python3-nss python3-pytest python3-pep8 \
 		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
@@ -66,17 +67,17 @@ lib389-srpms: lib389-rpmbuild-prep
 
 lib389-rpms: lib389-rpmbuild-prep
 	$(MAKE) -C $(DEVDIR)/lib389/ rpm
-	cp ~/rpmbuild/RPMS/noarch/python-lib389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
+	cp ~/rpmbuild/RPMS/noarch/python*-lib389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
 
 nunc-stans-configure:
 	cd $(DEVDIR)/nunc-stans/ && autoreconf --force --install
 	mkdir -p $(BUILDDIR)/nunc-stans
-	cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" CFLAGS=$(ns_cflags) $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv
+	cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" CFLAGS=$(ns_cflags) $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv --enable-debug
 
 nunc-stans: nunc-stans-configure
 	$(MAKE) -C $(BUILDDIR)/nunc-stans/
 	sudo $(MAKE) -C $(BUILDDIR)/nunc-stans/ install
-	sudo cp $(DEVDIR)/nunc-stans/liblfds/bin/* /opt/dirsrv/lib/
+	sudo cp $(DEVDIR)/nunc-stans/liblfds710/bin/* /opt/dirsrv/lib/
 
 nunc-stans-clean:
 	$(MAKE) -C $(BUILDDIR)/nunc-stans/ clean
@@ -165,7 +166,7 @@ rest389-srpms: rest389-rpmbuild-prep
 
 rest389-rpms: rest389-rpmbuild-prep
 	rpmbuild -bb $(DEVDIR)/rest389/python-rest389.spec
-	cp ~/rpmbuild/RPMS/noarch/python-rest389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
+	cp ~/rpmbuild/RPMS/noarch/python*-rest389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
 
 idm389: lib389
 	$(MAKE) -C $(DEVDIR)/idm389/ build PYTHON=$(PYTHON)
@@ -181,7 +182,7 @@ idm389-srpms: idm389-rpmbuild-prep
 
 idm389-rpms: idm389-rpmbuild-prep
 	$(MAKE) -C $(DEVDIR)/idm389/ rpm
-	cp ~/rpmbuild/RPMS/noarch/python-idm389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
+	cp ~/rpmbuild/RPMS/noarch/python*-idm389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
 
 clone:
 	git clone ssh://git.fedorahosted.org/git/389/ds.git
@@ -220,27 +221,31 @@ github-commit:
 	cd nunc-stans; git push github master
 
 # idm389-rpms
+rpms-clean:
+	cd $(DEVDIR)/rpmbuild/; find . -name '*.rpm' -exec rm '{}' \;
+
 rpms: svrcore-rpms svrcore-rpms-install lib389-rpms rest389-rpms ds-rpms idm389-rpms
 
+rpms-install:
+	sudo yum install -y $(DEVDIR)/rpmbuild/RPMS/noarch/*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/*.rpm
+
 srpms-clean:
+	rm ~/rpmbuild/SRPMS/python-rest389*.src.rpm
+	rm $(BUILDDIR)/svrcore/rpmbuild/SRPMS/svrcore*.src.rpm
+	rm $(BUILDDIR)/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm
+	rm $(DEVDIR)/idm389/dist/*
+	rm $(DEVDIR)/lib389/dist/*
 	rm $(DEVDIR)/rpmbuild/SRPMS/*
 
 srpms: ds-srpms lib389-srpms rest389-srpms idm389-srpms svrcore-srpms
 
-# Is there a nicer way to do this?
-copr-wait:
-	# Upload all the sprms to copr as builds
-	copr-cli build lib389 `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-lib389*.src.rpm | head -n 1`
-	copr-cli build rest389 `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-rest389*.src.rpm | head -n 1`
-	copr-cli build idm389 `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-idm389*.src.rpm | head -n 1`
-	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/389-ds-base*.src.rpm | head -n 1`
-	copr-cli build svrcore `ls -1t $(DEVDIR)/rpmbuild/SRPMS/svrcore*.src.rpm | head -n 1`
-
+# We need to use the wait version, else the deps aren't ready, and these builds
+# are linked!
 copr:
 	# Upload all the sprms to copr as builds
-	copr-cli build lib389 --nowait `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-lib389*.src.rpm | head -n 1`
-	copr-cli build rest389 --nowait `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-rest389*.src.rpm | head -n 1`
-	copr-cli build idm389 --nowait `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-idm389*.src.rpm | head -n 1`
-	copr-cli build ds --nowait `ls -1t $(DEVDIR)/rpmbuild/SRPMS/389-ds-base*.src.rpm | head -n 1`
-	copr-cli build svrcore --nowait `ls -1t $(DEVDIR)/rpmbuild/SRPMS/svrcore*.src.rpm | head -n 1`
+	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/svrcore*.src.rpm | head -n 1`
+	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/389-ds-base*.src.rpm | head -n 1`
+	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-lib389*.src.rpm | head -n 1`
+	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-rest389*.src.rpm | head -n 1`
+	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-idm389*.src.rpm | head -n 1`
 
