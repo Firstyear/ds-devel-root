@@ -4,6 +4,7 @@ DEVDIR ?= $(shell pwd)
 BUILDDIR ?= ~/build
 LIB389_VERS ?= $(shell cat ./lib389/VERSION | head -n 1)
 REST389_VERS ?= $(shell cat ./rest389/VERSION | head -n 1)
+NUNC_STANS_VERS ?= $(shell cat ./nunc-stans/VERSION | head -n 1)
 PYTHON ?= /usr/bin/python3
 MAKE ?= make
 
@@ -36,11 +37,17 @@ builddeps-el7:
 	sudo pip3.4 install pyasn1 pyasn1-modules flask python-dateutil mod_wsgi
 	echo "LoadModule wsgi_module /usr/lib64/python3.4/site-packages/mod_wsgi/server/mod_wsgi-py34.cpython-34m.so" | sudo tee /etc/httpd/conf.modules.d/10-wsgi.conf
 
+
+#		python3 python3-devel python3-setuptools python3-six httpd-devel python3-mod_wsgi \
+#		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask python3-nss python3-pytest python3-pep8 
 builddeps-fedora:
-	sudo yum install -y --skip-broken rpm-build gcc autoconf make automake libtool libasan rpmdevtools pam-devel american-fuzzy-lop libcmocka libcmocka-devel krb5-server \
-		python3 python3-devel python3-setuptools python3-six httpd-devel python3-mod_wsgi \
-		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask python3-nss python3-pytest python3-pep8 \
-		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec rest389/python-rest389.spec lib389/python-lib389.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
+	sudo dnf install -y rpm-build gcc autoconf make automake libtool rpmdevtools american-fuzzy-lop \
+		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
+	# sudo dnf builddep -y ds/rpm/389-ds-base.spec.in
+	sudo dnf builddep -y lib389/python-lib389.spec
+	sudo dnf builddep -y rest389/python-rest389.spec
+	sudo dnf builddep -y svrcore/svrcore.spec
+	sudo dnf builddep -y nunc-stans/nunc-stans.spec
 
 builddeps-freebsd:
 	sudo pkg install autotools git openldap-client db5 cyrus-sasl pkgconf nspr nss net-snmp gmake python34 gcc6
@@ -69,6 +76,23 @@ lib389-rpms: lib389-rpmbuild-prep
 	$(MAKE) -C $(DEVDIR)/lib389/ rpm
 	cp ~/rpmbuild/RPMS/noarch/python*-lib389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
 
+nunc-stans-rpmbuild-prep:
+	mkdir -p $(DEVDIR)/nunc-stans/dist/
+	mkdir -p ~/rpmbuild/SOURCES
+	mkdir -p ~/rpmbuild/SPECS
+	cd $(DEVDIR)/nunc-stans; git archive --prefix=nunc-stans-$(NUNC_STANS_VERS)/ HEAD | bzip2 > $(DEVDIR)/nunc-stans/dist/nunc-stans-$(NUNC_STANS_VERS).tar.xz
+	cp $(DEVDIR)/nunc-stans/dist/nunc-stans-$(NUNC_STANS_VERS).tar.xz ~/rpmbuild/SOURCES
+
+nunc-stans-srpms: nunc-stans-rpmbuild-prep
+	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
+	rpmbuild -bs $(DEVDIR)/nunc-stans/nunc-stans.spec
+	cp ~/rpmbuild/SRPMS/nunc-stans*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
+
+nunc-stans-rpms: nunc-stans-rpmbuild-prep
+	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
+	rpmbuild -bb $(DEVDIR)/nunc-stans/nunc-stans.spec
+	cp ~/rpmbuild/RPMS/x86_64/nunc-stans*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/
+
 nunc-stans-configure:
 	cd $(DEVDIR)/nunc-stans/ && autoreconf --force --install
 	mkdir -p $(BUILDDIR)/nunc-stans
@@ -77,7 +101,6 @@ nunc-stans-configure:
 nunc-stans: nunc-stans-configure
 	$(MAKE) -C $(BUILDDIR)/nunc-stans/
 	sudo $(MAKE) -C $(BUILDDIR)/nunc-stans/ install
-	sudo cp $(DEVDIR)/nunc-stans/liblfds710/bin/* /opt/dirsrv/lib/
 
 nunc-stans-clean:
 	$(MAKE) -C $(BUILDDIR)/nunc-stans/ clean
