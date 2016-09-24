@@ -43,7 +43,7 @@ builddeps-el7:
 builddeps-fedora:
 	sudo dnf install -y rpm-build gcc autoconf make automake libtool rpmdevtools american-fuzzy-lop \
 		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
-	# sudo dnf builddep -y ds/rpm/389-ds-base.spec.in
+	# sudo dnf builddep -y --spec ds/rpm/389-ds-base.spec.in
 	sudo dnf builddep -y lib389/python-lib389.spec
 	sudo dnf builddep -y rest389/python-rest389.spec
 	sudo dnf builddep -y svrcore/svrcore.spec
@@ -80,7 +80,7 @@ nunc-stans-rpmbuild-prep:
 	mkdir -p $(DEVDIR)/nunc-stans/dist/
 	mkdir -p ~/rpmbuild/SOURCES
 	mkdir -p ~/rpmbuild/SPECS
-	cd $(DEVDIR)/nunc-stans; git archive --prefix=nunc-stans-$(NUNC_STANS_VERS)/ HEAD | bzip2 > $(DEVDIR)/nunc-stans/dist/nunc-stans-$(NUNC_STANS_VERS).tar.xz
+	cd $(DEVDIR)/nunc-stans; git archive --prefix=nunc-stans-$(NUNC_STANS_VERS)/ HEAD | xz > $(DEVDIR)/nunc-stans/dist/nunc-stans-$(NUNC_STANS_VERS).tar.xz
 	cp $(DEVDIR)/nunc-stans/dist/nunc-stans-$(NUNC_STANS_VERS).tar.xz ~/rpmbuild/SOURCES
 
 nunc-stans-srpms: nunc-stans-rpmbuild-prep
@@ -138,6 +138,26 @@ ds-configure:
 ds: lib389 svrcore nunc-stans ds-configure
 	$(MAKE) -C $(BUILDDIR)/ds 1> /tmp/buildlog
 	sudo $(MAKE) -C $(BUILDDIR)/ds install 1>> /tmp/buildlog
+
+ds-rust-clean:
+	$(MAKE) -C $(BUILDDIR)/ds_rust clean
+
+ds-rust-configure:
+	cd $(DEVDIR)/ds_rust && autoreconf --force
+	mkdir -p $(BUILDDIR)/ds_rust
+	cd $(BUILDDIR)/ds_rust/ &&  $(DEVDIR)/ds_rust/configure --prefix=/opt/dirsrv
+
+ds-rust: ds-rust-configure
+	$(MAKE) -C $(BUILDDIR)/ds_rust
+	sudo $(MAKE) -C $(BUILDDIR)/ds_rust install
+
+ds-rust-srpms: ds-rust-configure
+	$(MAKE) -C $(BUILDDIR)/ds_rust srpms
+	cp $(BUILDDIR)/ds_rust/rpmbuild/SRPMS/*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
+
+ds-rust-rpms: ds-rust-configure
+	$(MAKE) -C $(BUILDDIR)/ds_rust rpms
+	cp $(BUILDDIR)/ds_rust/rpmbuild/RPMS/x86_64/ds-rust* $(DEVDIR)/rpmbuild/RPMS/x86_64/
 
 # Self contained freebsd build, due to the (temporary) differences.
 ds-fbsd: lib389 svrcore
@@ -271,4 +291,5 @@ copr:
 	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-lib389*.src.rpm | head -n 1`
 	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-rest389*.src.rpm | head -n 1`
 	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-idm389*.src.rpm | head -n 1`
+	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/ds-rust-plugins*.src.rpm | head -n 1`
 
