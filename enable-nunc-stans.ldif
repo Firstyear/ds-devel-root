@@ -1,0 +1,6 @@
+dn: cn=config
+changetype: modify
+replace: nsslapd-enable-nunc-stans
+nsslapd-enable-nunc-stans: on
+-
+

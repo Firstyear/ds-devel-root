@@ -16,12 +16,12 @@ ASAN ?= true
 
 ifeq ($(ASAN), true)
 ns_cflags = "-O0 -Wall -Wextra -Wunused -fsanitize=address -fno-omit-frame-pointer -lasan -Wstrict-overflow -fno-strict-aliasing"
-ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-prototypes -Wpedantic -Wstrict-overflow -fno-strict-aliasing "
+ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-prototypes -Wpedantic -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable "
 ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-auto-dn-suffix --enable-autobind --with-systemd
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd --enable-asan
 else
 ns_cflags = "-Wall -Wextra -Wunused -Wstrict-overflow -fno-strict-aliasing"
-ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-prototypes -Wpedantic -Wstrict-overflow -fno-strict-aliasing"
+ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-prototypes -Wpedantic -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable "
 ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind --with-systemd
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd
 endif
@@ -42,6 +42,8 @@ builddeps-el7:
 #		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask python3-nss python3-pytest python3-pep8 
 builddeps-fedora:
 	sudo dnf install -y rpm-build gcc autoconf make automake libtool rpmdevtools american-fuzzy-lop \
+		python3 python3-devel python3-setuptools python3-six httpd-devel python3-mod_wsgi \
+		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask python3-nss python3-pytest python3-pep8 \
 		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
 	# sudo dnf builddep -y --spec ds/rpm/389-ds-base.spec.in
 	sudo dnf builddep -y lib389/python-lib389.spec
@@ -103,7 +105,7 @@ nunc-stans: nunc-stans-configure
 	sudo $(MAKE) -C $(BUILDDIR)/nunc-stans/ install
 
 nunc-stans-clean:
-	$(MAKE) -C $(BUILDDIR)/nunc-stans/ clean
+	$(MAKE) -C $(BUILDDIR)/nunc-stans/ clean; true
 
 svrcore-configure:
 	cd $(DEVDIR)/svrcore/ && autoreconf --force --install
@@ -115,7 +117,7 @@ svrcore: svrcore-configure
 	sudo $(MAKE) -C $(BUILDDIR)/svrcore install
 
 svrcore-clean:
-	$(MAKE) -C $(BUILDDIR)/svrcore clean
+	$(MAKE) -C $(BUILDDIR)/svrcore clean; true
 
 svrcore-rpms: svrcore-configure
 	$(MAKE) -C $(BUILDDIR)/svrcore rpms
@@ -140,7 +142,7 @@ ds: lib389 svrcore nunc-stans ds-configure
 	sudo $(MAKE) -C $(BUILDDIR)/ds install 1>> /tmp/buildlog
 
 ds-rust-clean:
-	$(MAKE) -C $(BUILDDIR)/ds_rust clean
+	$(MAKE) -C $(BUILDDIR)/ds_rust clean; true
 
 ds-rust-configure:
 	cd $(DEVDIR)/ds_rust && autoreconf --force
@@ -169,7 +171,7 @@ ds-fbsd: lib389 svrcore
 	sudo mkdir -p /opt/dirsrv/etc/sysconfig/
 
 ds-clean:
-	$(MAKE) -C $(BUILDDIR)/ds clean
+	$(MAKE) -C $(BUILDDIR)/ds clean; true
 
 ds-rpms: ds-configure
 	$(MAKE) -C $(BUILDDIR)/ds rpmsources
@@ -186,7 +188,7 @@ ds-setup:
 	sudo /opt/dirsrv/sbin/setup-ds.pl --silent --debug --file=$(DEVDIR)/setup.inf General.FullMachineName=$$(hostname)
 
 ds-setup-py: rest389
-	sudo PYTHONPATH=$(DEVDIR)/lib389:$(DEVDIR)/rest389 PREFIX=/opt/dirsrv /usr/sbin/dsadm -v instance create -f /usr/share/rest389/examples/ds-setup-rest-admin.inf --IsolemnlyswearthatIamuptonogood
+	sudo PYTHONPATH=$(DEVDIR)/lib389:$(DEVDIR)/rest389 PREFIX=/opt/dirsrv /usr/sbin/dsadm -v instance create -f /usr/share/rest389/examples/ds-setup-rest-admin.inf --IsolemnlyswearthatIamuptonogood --containerised
 
 ds-setup-py2: rest389
 	sudo PYTHONPATH=$(DEVDIR)/lib389:$(DEVDIR)/rest389 PREFIX=/opt/dirsrv python2 /usr/sbin/ds-rest-setup -f /usr/share/rest389/examples/ds-setup-rest-admin.inf --IsolemnlyswearthatIamuptonogood -v
@@ -265,7 +267,7 @@ github-commit:
 
 # idm389-rpms
 rpms-clean:
-	cd $(DEVDIR)/rpmbuild/; find . -name '*.rpm' -exec rm '{}' \;
+	cd $(DEVDIR)/rpmbuild/; find . -name '*.rpm' -exec rm '{}' \; ; true
 
 rpms: svrcore-rpms svrcore-rpms-install lib389-rpms rest389-rpms ds-rpms idm389-rpms
 
@@ -273,12 +275,12 @@ rpms-install:
 	sudo yum install -y $(DEVDIR)/rpmbuild/RPMS/noarch/*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/*.rpm
 
 srpms-clean:
-	rm ~/rpmbuild/SRPMS/python-rest389*.src.rpm
-	rm $(BUILDDIR)/svrcore/rpmbuild/SRPMS/svrcore*.src.rpm
-	rm $(BUILDDIR)/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm
-	rm $(DEVDIR)/idm389/dist/*
-	rm $(DEVDIR)/lib389/dist/*
-	rm $(DEVDIR)/rpmbuild/SRPMS/*
+	rm ~/rpmbuild/SRPMS/python-rest389*.src.rpm ; true
+	rm $(BUILDDIR)/svrcore/rpmbuild/SRPMS/svrcore*.src.rpm; true
+	rm $(BUILDDIR)/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm; true
+	rm $(DEVDIR)/idm389/dist/*; true
+	rm $(DEVDIR)/lib389/dist/*; true
+	rm $(DEVDIR)/rpmbuild/SRPMS/*; true
 
 srpms: ds-srpms lib389-srpms rest389-srpms idm389-srpms svrcore-srpms
 
@@ -292,4 +294,13 @@ copr:
 	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-rest389*.src.rpm | head -n 1`
 	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-idm389*.src.rpm | head -n 1`
 	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/ds-rust-plugins*.src.rpm | head -n 1`
+
+copr-echo:
+	# Upload all the sprms to copr as builds
+	echo copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/svrcore*.src.rpm | head -n 1`
+	echo copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/389-ds-base*.src.rpm | head -n 1`
+	echo copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-lib389*.src.rpm | head -n 1`
+	echo copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-rest389*.src.rpm | head -n 1`
+	echo copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-idm389*.src.rpm | head -n 1`
+	echo copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/ds-rust-plugins*.src.rpm | head -n 1`
 
