@@ -16,17 +16,15 @@ ASAN ?= true
 # Removed the --with-systemd flag to work in containers!
 
 ifeq ($(ASAN), true)
-ns_cflags = "-O0 -Wall -Wextra -Wunused -fno-omit-frame-pointer -Wstrict-overflow -fno-strict-aliasing"
-# ns_cflags = "-O0 -Wall -Wextra -Wunused -fsanitize=address -fno-omit-frame-pointer -lasan -Wstrict-overflow -fno-strict-aliasing"
+# ns_cflags = "-O0 -Wall -Wextra -Wunused -fno-omit-frame-pointer -Wstrict-overflow -fno-strict-aliasing"
+ns_cflags = "-O0 -Wall -Wextra -Wunused -fsanitize=address -fno-omit-frame-pointer -lasan -Wstrict-overflow -fno-strict-aliasing"
 ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-prototypes -Wpedantic -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable -flto"
 ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-auto-dn-suffix --enable-autobind
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd --enable-asan
 else
-ns_cflags = "-O2 -Wall -Wextra -Wunused -Wstrict-overflow -fno-strict-aliasing"
-# ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-prototypes -Wpedantic -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable "
-ds_cflags = "-O2 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-prototypes -Wpedantic -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable -flto "
-ds_confflags =--with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind
-# ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind
+ns_cflags = "-O0 -Wall -Wextra -Wunused -Wstrict-overflow -fno-strict-aliasing"
+ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-prototypes -Wpedantic -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable -flto"
+ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd
 endif
 
