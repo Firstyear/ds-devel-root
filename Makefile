@@ -10,20 +10,19 @@ MAKE ?= make
 
 ASAN ?= true
 
-# -Wlogical-op  -Wduplicated-cond  -Wshift-overflow=2  -Wnull-dereference
+# -Wlogical-op  -Wduplicated-cond  -Wshift-overflow=2  -Wnull-dereference -Wstrict-prototypes
 
-# Need to add -flto!
 # Removed the --with-systemd flag to work in containers!
 
 ifeq ($(ASAN), true)
-# ns_cflags = "-O0 -Wall -Wextra -Wunused -fno-omit-frame-pointer -Wstrict-overflow -fno-strict-aliasing"
-ns_cflags = "-O0 -Wall -Wextra -Wunused -fsanitize=address -fno-omit-frame-pointer -lasan -Wstrict-overflow -fno-strict-aliasing"
-ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-prototypes -Wpedantic -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable -flto"
+ns_cflags = "-O0 -Wall -Wextra -Wunused -fno-omit-frame-pointer -Wstrict-overflow -fno-strict-aliasing"
+# -fsanitize=address -lasan "
+ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
 ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-auto-dn-suffix --enable-autobind
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd --enable-asan
 else
 ns_cflags = "-O0 -Wall -Wextra -Wunused -Wstrict-overflow -fno-strict-aliasing"
-ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-prototypes -Wpedantic -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable -flto"
+ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wpedantic -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
 ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd
 endif
@@ -98,7 +97,7 @@ nunc-stans-rpms: nunc-stans-rpmbuild-prep
 	cp ~/rpmbuild/RPMS/x86_64/nunc-stans*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/
 
 nunc-stans-configure:
-	cd $(DEVDIR)/nunc-stans/ && autoreconf --force --install
+	cd $(DEVDIR)/nunc-stans/ && autoreconf -fiv
 	mkdir -p $(BUILDDIR)/nunc-stans
 	cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" CFLAGS=$(ns_cflags) $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv --enable-debug
 
@@ -110,7 +109,7 @@ nunc-stans-clean:
 	$(MAKE) -C $(BUILDDIR)/nunc-stans/ clean; true
 
 svrcore-configure:
-	cd $(DEVDIR)/svrcore/ && autoreconf --force --install
+	cd $(DEVDIR)/svrcore/ && autoreconf -fiv
 	mkdir -p $(BUILDDIR)/svrcore
 	cd $(BUILDDIR)/svrcore && $(DEVDIR)/svrcore/configure $(svrcore_cflags)
 
@@ -147,7 +146,7 @@ ds-rust-clean:
 	$(MAKE) -C $(BUILDDIR)/ds_rust clean; true
 
 ds-rust-configure:
-	cd $(DEVDIR)/ds_rust && autoreconf --force
+	cd $(DEVDIR)/ds_rust && autoreconf -fiv
 	mkdir -p $(BUILDDIR)/ds_rust
 	cd $(BUILDDIR)/ds_rust/ &&  $(DEVDIR)/ds_rust/configure --prefix=/opt/dirsrv
 
@@ -165,7 +164,7 @@ ds-rust-rpms: ds-rust-configure
 
 # Self contained freebsd build, due to the (temporary) differences.
 ds-fbsd: lib389 svrcore
-	cd $(DEVDIR)/ds && autoreconf --force
+	cd $(DEVDIR)/ds && autoreconf -fiv
 	mkdir -p $(BUILDDIR)/ds/
 	cd $(BUILDDIR)/ds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/ds/configure --enable-debug --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind --with-openldap=/usr/local --with-db --with-db-inc=/usr/local/include/db5/ --with-db-lib=/usr/local/lib/db5/ --with-sasl --with-sasl-inc=/usr/local/include/sasl/ --with-sasl-lib=/usr/local/lib/sasl2/ --with-netsnmp=/usr/local --with-kerberos-impl=mit --with-kerberos=/usr/local/
 	$(MAKE) -C $(BUILDDIR)/ds 1> /tmp/buildlog
