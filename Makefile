@@ -1,5 +1,6 @@
 .PHONY: ds-setup lib389 rest389 pyldap
 
+SILENT ?= --enable-silent-rules
 DEVDIR ?= $(shell pwd)
 BUILDDIR ?= ~/build
 LIB389_VERS ?= $(shell cat ./lib389/VERSION | head -n 1)
@@ -15,16 +16,15 @@ ASAN ?= true
 # Removed the --with-systemd flag to work in containers!
 
 ifeq ($(ASAN), true)
-ns_cflags = "-O0 -Wall -Wextra -Wunused -fno-omit-frame-pointer -Wstrict-overflow -fno-strict-aliasing"
-# -fsanitize=address -lasan "
+ns_cflags = "-O0 -Wall -Wextra -Wunused -fno-omit-frame-pointer -Wstrict-overflow -fno-strict-aliasing -fsanitize=address -lasan "
 ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
-ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-auto-dn-suffix --enable-autobind
-svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd --enable-asan
+ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-auto-dn-suffix --enable-autobind $(SILENT)
+svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd --enable-asan $(SILENT)
 else
-ns_cflags = "-O0 -Wall -Wextra -Wunused -Wstrict-overflow -fno-strict-aliasing"
-ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wpedantic -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
-ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind
-svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd
+ns_cflags = "-O2 -Wall -Wextra -Wunused -Wstrict-overflow -fno-strict-aliasing"
+ds_cflags = "-O2 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
+ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind $(SILENT)
+svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd $(SILENT)
 endif
 
 all:
@@ -57,7 +57,7 @@ builddeps-freebsd:
 	sudo python3.4 -m ensurepip
 	sudo pip3.4 install six pyasn1 pyasn1-modules pytest python-dateutil
 
-clean: ds-clean nunc-stans-clean svrcore-clean srpms-clean
+clean: ds-clean nunc-stans-clean svrcore-clean srpms-clean rpms-clean
 
 pyldap:
 	cd $(DEVDIR)/pyldap/ && $(PYTHON) setup.py build
@@ -99,7 +99,7 @@ nunc-stans-rpms: nunc-stans-rpmbuild-prep
 nunc-stans-configure:
 	cd $(DEVDIR)/nunc-stans/ && autoreconf -fiv
 	mkdir -p $(BUILDDIR)/nunc-stans
-	cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" CFLAGS=$(ns_cflags) $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv --enable-debug
+	cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" CFLAGS=$(ns_cflags) $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv --enable-debug $(SILENT)
 
 nunc-stans: nunc-stans-configure
 	$(MAKE) -C $(BUILDDIR)/nunc-stans/
@@ -139,8 +139,8 @@ ds-configure:
 	cd $(BUILDDIR)/ds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/ds/configure $(ds_confflags)
 
 ds: lib389 svrcore nunc-stans ds-configure
-	$(MAKE) -C $(BUILDDIR)/ds 1> /tmp/buildlog
-	sudo $(MAKE) -C $(BUILDDIR)/ds install 1>> /tmp/buildlog
+	$(MAKE) -C $(BUILDDIR)/ds
+	sudo $(MAKE) -C $(BUILDDIR)/ds install
 
 ds-rust-clean:
 	$(MAKE) -C $(BUILDDIR)/ds_rust clean; true
@@ -148,7 +148,7 @@ ds-rust-clean:
 ds-rust-configure:
 	cd $(DEVDIR)/ds_rust && autoreconf -fiv
 	mkdir -p $(BUILDDIR)/ds_rust
-	cd $(BUILDDIR)/ds_rust/ &&  $(DEVDIR)/ds_rust/configure --prefix=/opt/dirsrv
+	cd $(BUILDDIR)/ds_rust/ &&  $(DEVDIR)/ds_rust/configure --prefix=/opt/dirsrv $(SILENT)
 
 ds-rust: ds-rust-configure
 	$(MAKE) -C $(BUILDDIR)/ds_rust
@@ -167,22 +167,23 @@ ds-fbsd: lib389 svrcore
 	cd $(DEVDIR)/ds && autoreconf -fiv
 	mkdir -p $(BUILDDIR)/ds/
 	cd $(BUILDDIR)/ds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/ds/configure --enable-debug --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind --with-openldap=/usr/local --with-db --with-db-inc=/usr/local/include/db5/ --with-db-lib=/usr/local/lib/db5/ --with-sasl --with-sasl-inc=/usr/local/include/sasl/ --with-sasl-lib=/usr/local/lib/sasl2/ --with-netsnmp=/usr/local --with-kerberos-impl=mit --with-kerberos=/usr/local/
-	$(MAKE) -C $(BUILDDIR)/ds 1> /tmp/buildlog
-	sudo $(MAKE) -C $(BUILDDIR)/ds install 1>> /tmp/buildlog
+	$(MAKE) -C $(BUILDDIR)/ds
+	sudo $(MAKE) -C $(BUILDDIR)/ds install
 	sudo mkdir -p /opt/dirsrv/etc/sysconfig/
 
 ds-clean:
 	$(MAKE) -C $(BUILDDIR)/ds clean; true
 
-ds-rpms: ds-configure
-	$(MAKE) -C $(BUILDDIR)/ds rpmsources
+ds-rpms: ds-configure nunc-stans-rpmbuild-prep
+	mkdir -p $(BUILDDIR)/ds/rpmbuild/SOURCES/
+	cp $(DEVDIR)/nunc-stans/dist/nunc-stans-$(NUNC_STANS_VERS).tar.xz $(BUILDDIR)/ds/rpmbuild/SOURCES/
 	$(MAKE) -C $(BUILDDIR)/ds rpms
 	cp $(BUILDDIR)/ds/rpmbuild/RPMS/x86_64/389-ds-base*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/
 
-ds-srpms: ds-configure
-	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
-	$(MAKE) -C $(BUILDDIR)/ds rpmsources
+ds-srpms: ds-configure nunc-stans-rpmbuild-prep
+	cp $(DEVDIR)/nunc-stans/dist/nunc-stans-$(NUNC_STANS_VERS).tar.xz $(BUILDDIR)/ds/rpmbuild/SOURCES/
 	$(MAKE) -C $(BUILDDIR)/ds srpm
+	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
 	cp $(BUILDDIR)/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
 ds-setup:
