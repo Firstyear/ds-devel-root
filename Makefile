@@ -42,11 +42,11 @@ builddeps-el7:
 #		python3 python3-devel python3-setuptools python3-six httpd-devel python3-mod_wsgi \
 #		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask python3-nss python3-pytest python3-pep8 
 builddeps-fedora:
-	sudo dnf install -y rpm-build gcc autoconf make automake libtool rpmdevtools american-fuzzy-lop git \
+	sudo dnf install --skip-missing -y rpm-build gcc autoconf make automake libtool rpmdevtools american-fuzzy-lop git \
 		python3 python3-devel python3-setuptools python3-six httpd-devel python3-mod_wsgi \
 		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask python3-nss python3-pytest python3-pep8 \
 		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
-	# sudo dnf builddep -y --spec ds/rpm/389-ds-base.spec.in
+	#sudo dnf builddep -y --spec ds/rpm/389-ds-base.spec.in
 	sudo dnf builddep -y lib389/python-lib389.spec
 	sudo dnf builddep -y rest389/python-rest389.spec
 	sudo dnf builddep -y svrcore/svrcore.spec
@@ -233,21 +233,21 @@ idm389-rpms: idm389-rpmbuild-prep
 
 clone:
 	git clone ssh://git.fedorahosted.org/git/389/ds.git
-	git clone ssh://git.fedorahosted.org/git/nunc-stans.git
+	git close ssh://git@pagure.io/nunc-stans.git
 	git clone ssh://git.fedorahosted.org/git/389/lib389.git
-	git clone ssh://git.fedorahosted.org/git/rest389.git
+	git clone ssh://git@pagure.io/rest389.git
 	git clone ssh://git@github.com:Firstyear/idm389.git
 	git clone ssh://git@pagure.io/svrcore.git
-	#git clone ssh://github.com/pyldap/pyldap.git
+	# git clone ssh://github.com/pyldap/pyldap.git
 
 clone-anon:
 	git clone https://git.fedorahosted.org/git/389/ds.git
-	git clone https://git.fedorahosted.org/git/nunc-stans.git
 	git clone https://git.fedorahosted.org/git/389/lib389.git
-	git clone https://git.fedorahosted.org/git/rest389.git
-	git clone https://github.com/Firstyear/idm389.git
+	git clone https://pagure.io/nunc-stans.git
+	git clone https://pagure.io/rest389.git
 	git clone https://pagure.io/svrcore.git
-	git clone https://github.com/pyldap/pyldap.git
+	git clone https://github.com/Firstyear/idm389.git
+	# git clone https://github.com/pyldap/pyldap.git
 
 pull:
 	cd ds; git pull
@@ -256,7 +256,7 @@ pull:
 	cd idm389; git pull
 	cd nunc-stans; git pull
 	cd svrcore; git pull
-	cd pyldap; git pull
+	# cd pyldap; git pull
 
 github-commit:
 	echo you should be on the master branches here!
