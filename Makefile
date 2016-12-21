@@ -21,8 +21,9 @@ ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare 
 ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-auto-dn-suffix --enable-autobind $(SILENT)
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd --enable-asan $(SILENT)
 else
-ns_cflags = "-O2 -Wall -Wextra -Wunused -Wstrict-overflow -fno-strict-aliasing -flto"
-ds_cflags = "-O2 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable -flto"
+# -flto
+ns_cflags = "-O2 -Wall -Wextra -Wunused -Wstrict-overflow -fno-strict-aliasing"
+ds_cflags = "-O2 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
 ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind $(SILENT)
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd $(SILENT)
 endif
@@ -233,7 +234,7 @@ idm389-rpms: idm389-rpmbuild-prep
 
 clone:
 	git clone ssh://git.fedorahosted.org/git/389/ds.git
-	git close ssh://git@pagure.io/nunc-stans.git
+	git clone ssh://git@pagure.io/nunc-stans.git
 	git clone ssh://git.fedorahosted.org/git/389/lib389.git
 	git clone ssh://git@pagure.io/rest389.git
 	git clone ssh://git@github.com:Firstyear/idm389.git
