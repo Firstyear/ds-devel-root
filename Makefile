@@ -11,6 +11,8 @@ MAKE ?= make
 
 ASAN ?= true
 
+PKG_CONFIG_PATH ?= /opt/dirsrv/lib/pkgconfig
+
 # -Wlogical-op  -Wduplicated-cond  -Wshift-overflow=2  -Wnull-dereference -Wstrict-prototypes
 
 # Removed the --with-systemd flag to work in containers!
@@ -20,6 +22,7 @@ ns_cflags = "-O0 -Wall -Wextra -Wunused -fno-omit-frame-pointer -Wstrict-overflo
 ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
 ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-auto-dn-suffix --enable-autobind $(SILENT)
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd --enable-asan $(SILENT)
+sds_confflags = --enable-debug --enable-tests --enable-profiling --enable-asan
 else
 # -flto
 ns_cflags = "-O2 -Wall -Wextra -Wunused -Wstrict-overflow -fno-strict-aliasing"
@@ -58,7 +61,7 @@ builddeps-freebsd:
 	sudo python3.4 -m ensurepip
 	sudo pip3.4 install six pyasn1 pyasn1-modules pytest python-dateutil
 
-clean: ds-clean nunc-stans-clean svrcore-clean srpms-clean rpms-clean
+clean: ds-clean nunc-stans-clean svrcore-clean srpms-clean rpms-clean libsds-clean
 
 pyldap:
 	cd $(DEVDIR)/pyldap/ && $(PYTHON) setup.py build
@@ -80,6 +83,19 @@ lib389-rpms: lib389-rpmbuild-prep
 	$(MAKE) -C $(DEVDIR)/lib389/ rpm
 	cp ~/rpmbuild/RPMS/noarch/python*-lib389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
 
+libsds-configure:
+	cd $(DEVDIR)/libsds/ && autoreconf -fiv
+	mkdir -p $(BUILDDIR)/libsds/
+	cd $(BUILDDIR)/libsds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/libsds/configure --prefix=/opt/dirsrv $(sds_confflags) $(SILENT)
+
+libsds: libsds-configure
+	$(MAKE) -C $(BUILDDIR)/libsds/
+	$(MAKE) -C $(BUILDDIR)/libsds/ check
+	sudo $(MAKE) -C $(BUILDDIR)/libsds/ install
+
+libsds-clean:
+	$(MAKE) -C $(BUILDDIR)/libsds/ clean; true
+
 nunc-stans-rpmbuild-prep:
 	mkdir -p $(DEVDIR)/nunc-stans/dist/
 	mkdir -p ~/rpmbuild/SOURCES
@@ -100,10 +116,11 @@ nunc-stans-rpms: nunc-stans-rpmbuild-prep
 nunc-stans-configure:
 	cd $(DEVDIR)/nunc-stans/ && autoreconf -fiv
 	mkdir -p $(BUILDDIR)/nunc-stans
-	cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" CFLAGS=$(ns_cflags) $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv --enable-debug $(SILENT)
+	cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) CFLAGS=$(ns_cflags) $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv --enable-debug $(SILENT)
 
 nunc-stans: nunc-stans-configure
 	$(MAKE) -C $(BUILDDIR)/nunc-stans/
+	$(MAKE) -C $(BUILDDIR)/nunc-stans/ check
 	sudo $(MAKE) -C $(BUILDDIR)/nunc-stans/ install
 
 nunc-stans-clean:
