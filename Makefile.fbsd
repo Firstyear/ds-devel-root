@@ -1,0 +1,161 @@
+.PHONY: ds-setup lib389 rest389 pyldap
+
+OPREFIX = /opt/dirsrv
+SILENT ?= --enable-silent-rules
+DEVDIR ?= $(shell pwd)
+BUILDDIR ?= ~/build
+LIB389_VERS ?= $(shell cat ./lib389/VERSION | head -n 1)
+REST389_VERS ?= $(shell cat ./rest389/VERSION | head -n 1)
+NUNC_STANS_VERS ?= $(shell cat ./nunc-stans/VERSION | head -n 1)
+PYTHON ?= /usr/bin/python3
+MAKE ?= make
+
+ASAN ?= true
+
+# -Wlogical-op  -Wduplicated-cond  -Wshift-overflow=2  -Wnull-dereference -Wstrict-prototypes
+
+# Removed the --with-systemd flag to work in containers!
+
+ns_cflags = "-O2 -Wall -Wextra -Wunused -Wstrict-overflow -fno-strict-aliasing"
+ds_cflags = "-O2 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
+sds_confflags = --enable-debug --enable-tests --enable-profiling --enable-asan
+# ds_confflags = --enable-debug --with-svrcore=$(OPREFIX) --with-nunc-stans=$(OPREFIX) --enable-nunc-stans  --prefix=$(OPREFIX) --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind $(SILENT)
+ds_confflags = --enable-debug --with-svrcore=$(OPREFIX) --prefix=$(OPREFIX) --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind --with-openldap=/usr/local --with-db --with-db-inc=/usr/local/include/db5/ --with-db-lib=/usr/local/lib/db5/ --with-sasl --with-sasl-inc=/usr/local/include/sasl/ --with-sasl-lib=/usr/local/lib/sasl2/ --with-netsnmp=/usr/local --with-kerberos-impl=mit --with-kerberos=/usr/local/
+
+svrcore_cflags = --prefix=$(OPREFIX) --enable-debug --with-systemd $(SILENT)
+
+all:
+	echo "make ds|nunc-stans|lib389|ds-setup"
+
+builddeps:
+	sudo pkg install autotools git openldap-client db5 cyrus-sasl pkgconf nspr nss net-snmp gmake python34 gcc6
+	sudo python3.4 -m ensurepip
+	sudo pip3.4 install six pyasn1 pyasn1-modules pytest python-dateutil
+
+clean: ds-clean nunc-stans-clean svrcore-clean
+
+pyldap:
+	cd $(DEVDIR)/pyldap/ && $(PYTHON) setup.py build
+	cd $(DEVDIR)/pyldap/ && sudo $(PYTHON) setup.py install --force --root=/
+
+lib389: pyldap
+	$(MAKE) -C $(DEVDIR)/lib389/ build PYTHON=$(PYTHON)
+	sudo $(MAKE) -C $(DEVDIR)/lib389/ install PYTHON=$(PYTHON)
+
+libsds-configure:
+	cd $(DEVDIR)/libsds/ && autoreconf -fiv
+	mkdir -p $(BUILDDIR)/libsds/
+	cd $(BUILDDIR)/libsds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/libsds/configure --prefix=$(OPREFIX) $(sds_confflags) $(SILENT)
+
+libsds: libsds-configure
+	$(MAKE) -C $(BUILDDIR)/libsds/
+	$(MAKE) -C $(BUILDDIR)/libsds/ check
+	sudo $(MAKE) -C $(BUILDDIR)/libsds/ install
+
+libsds-clean:
+	$(MAKE) -C $(BUILDDIR)/libsds/ clean; true
+
+nunc-stans-configure:
+	cd $(DEVDIR)/nunc-stans/ && autoreconf -fiv
+	mkdir -p $(BUILDDIR)/nunc-stans
+	cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" CFLAGS=$(ns_cflags) $(DEVDIR)/nunc-stans/configure --prefix=$(OPREFIX) --enable-debug $(SILENT)
+
+nunc-stans: nunc-stans-configure 
+	$(MAKE) -C $(BUILDDIR)/nunc-stans/
+	sudo $(MAKE) -C $(BUILDDIR)/nunc-stans/ install
+
+nunc-stans-clean:
+	$(MAKE) -C $(BUILDDIR)/nunc-stans/ clean; true
+
+svrcore-configure:
+	cd $(DEVDIR)/svrcore/ && autoreconf -fiv
+	mkdir -p $(BUILDDIR)/svrcore
+	cd $(BUILDDIR)/svrcore && $(DEVDIR)/svrcore/configure $(svrcore_cflags)
+
+svrcore: svrcore-configure
+	$(MAKE) -C $(BUILDDIR)/svrcore
+	sudo $(MAKE) -C $(BUILDDIR)/svrcore install
+
+svrcore-clean:
+	$(MAKE) -C $(BUILDDIR)/svrcore clean; true
+
+ds-configure: 
+	cd $(DEVDIR)/ds && autoreconf -fiv
+	mkdir -p $(BUILDDIR)/ds/
+	cd $(BUILDDIR)/ds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/ds/configure $(ds_confflags) $(SILENT)
+
+ds-rust-clean:
+	$(MAKE) -C $(BUILDDIR)/ds_rust clean; true
+
+ds-rust-configure:
+	cd $(DEVDIR)/ds_rust && autoreconf -fiv
+	mkdir -p $(BUILDDIR)/ds_rust
+	cd $(BUILDDIR)/ds_rust/ &&  $(DEVDIR)/ds_rust/configure --prefix=$(OPREFIX) $(SILENT)
+
+ds-rust: ds-rust-configure
+	$(MAKE) -C $(BUILDDIR)/ds_rust
+	sudo $(MAKE) -C $(BUILDDIR)/ds_rust install
+
+# Self contained freebsd build, due to the (temporary) differences.
+ds: lib389 svrcore nunc-stans ds-configure
+	cd $(DEVDIR)/ds && autoreconf -fiv
+	mkdir -p $(BUILDDIR)/ds/
+	cd $(BUILDDIR)/ds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/ds/configure 
+	$(MAKE) -C $(BUILDDIR)/ds
+	sudo $(MAKE) -C $(BUILDDIR)/ds install
+	sudo mkdir -p $(OPREFIX)/etc/sysconfig/
+
+ds-clean:
+	$(MAKE) -C $(BUILDDIR)/ds clean; true
+
+ds-setup-py: rest389
+	sudo PYTHONPATH=$(DEVDIR)/lib389:$(DEVDIR)/rest389 PREFIX=$(OPREFIX) /usr/sbin/dsadm -v instance create -f /usr/share/rest389/examples/ds-setup-rest-admin.inf --IsolemnlyswearthatIamuptonogood --containerised
+
+ds-setup-py2: rest389
+	sudo PYTHONPATH=$(DEVDIR)/lib389:$(DEVDIR)/rest389 PREFIX=$(OPREFIX) python2 /usr/sbin/ds-rest-setup -f /usr/share/rest389/examples/ds-setup-rest-admin.inf --IsolemnlyswearthatIamuptonogood -v
+
+rest389: lib389
+	$(MAKE) -C $(DEVDIR)/rest389/ build PYTHON=$(PYTHON)
+	sudo $(MAKE) -C $(DEVDIR)/rest389/ install PYTHON=$(PYTHON)
+
+idm389: lib389
+	$(MAKE) -C $(DEVDIR)/idm389/ build PYTHON=$(PYTHON)
+	sudo $(MAKE) -C $(DEVDIR)/idm389/ install PYTHON=$(PYTHON)
+
+clone:
+	git clone ssh://git.fedorahosted.org/git/389/ds.git
+	git clone ssh://git@pagure.io/nunc-stans.git
+	git clone ssh://git.fedorahosted.org/git/389/lib389.git
+	git clone ssh://git@pagure.io/rest389.git
+	git clone ssh://git@github.com:Firstyear/idm389.git
+	git clone ssh://git@pagure.io/svrcore.git
+	git clone ssh://github.com/pyldap/pyldap.git
+	git clone ssh://git@pagure.io/libsds.git
+
+clone-anon:
+	git clone https://git.fedorahosted.org/git/389/ds.git
+	git clone https://git.fedorahosted.org/git/389/lib389.git
+	git clone https://pagure.io/nunc-stans.git
+	git clone https://pagure.io/rest389.git
+	git clone https://pagure.io/svrcore.git
+	git clone https://github.com/Firstyear/idm389.git
+	git clone https://github.com/pyldap/pyldap.git
+
+pull:
+	cd ds; git pull
+	cd lib389; git pull
+	cd rest389; git pull
+	cd idm389; git pull
+	cd nunc-stans; git pull
+	cd svrcore; git pull
+	cd pyldap; git pull
+
+github-commit:
+	echo you should be on the master branches here!
+	cd ds; git push github master
+	cd lib389; git push github master
+	cd idm389; git push origin master
+	cd rest389; git push github master
+	cd svrcore; git push github master
+	cd nunc-stans; git push github master
+
