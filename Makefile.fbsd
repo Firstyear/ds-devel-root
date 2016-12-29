@@ -1,7 +1,8 @@
 .PHONY: ds-setup lib389 rest389 pyldap
 
 OPREFIX = /opt/dirsrv
-SILENT ?= --enable-silent-rules
+SILENT ?= 
+# --enable-silent-rules
 DEVDIR ?= $(shell pwd)
 BUILDDIR ?= ~/build
 LIB389_VERS ?= $(shell cat ./lib389/VERSION | head -n 1)
@@ -9,6 +10,7 @@ REST389_VERS ?= $(shell cat ./rest389/VERSION | head -n 1)
 NUNC_STANS_VERS ?= $(shell cat ./nunc-stans/VERSION | head -n 1)
 PYTHON ?= /usr/bin/python3
 MAKE ?= make
+PKG_CONFIG_PATH ?= /usr/local/lib/pkgconfig:/opt/dirsrv/lib/pkgconfig
 
 ASAN ?= true
 
@@ -18,7 +20,7 @@ ASAN ?= true
 
 ns_cflags = "-O2 -Wall -Wextra -Wunused -Wstrict-overflow -fno-strict-aliasing"
 ds_cflags = "-O2 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
-sds_confflags = --enable-debug --enable-tests --enable-profiling --enable-asan
+sds_confflags = --enable-debug --enable-tests --enable-asan
 # ds_confflags = --enable-debug --with-svrcore=$(OPREFIX) --with-nunc-stans=$(OPREFIX) --enable-nunc-stans  --prefix=$(OPREFIX) --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind $(SILENT)
 ds_confflags = --enable-debug --with-svrcore=$(OPREFIX) --prefix=$(OPREFIX) --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind --with-openldap=/usr/local --with-db --with-db-inc=/usr/local/include/db5/ --with-db-lib=/usr/local/lib/db5/ --with-sasl --with-sasl-inc=/usr/local/include/sasl/ --with-sasl-lib=/usr/local/lib/sasl2/ --with-netsnmp=/usr/local --with-kerberos-impl=mit --with-kerberos=/usr/local/
 
@@ -28,7 +30,7 @@ all:
 	echo "make ds|nunc-stans|lib389|ds-setup"
 
 builddeps:
-	sudo pkg install autotools git openldap-client db5 cyrus-sasl pkgconf nspr nss net-snmp gmake python34 gcc6
+	sudo pkg install autotools git openldap-client db5 cyrus-sasl pkgconf nspr nss net-snmp gmake python34 libevent2 doxygen
 	sudo python3.4 -m ensurepip
 	sudo pip3.4 install six pyasn1 pyasn1-modules pytest python-dateutil
 
@@ -45,7 +47,7 @@ lib389: pyldap
 libsds-configure:
 	cd $(DEVDIR)/libsds/ && autoreconf -fiv
 	mkdir -p $(BUILDDIR)/libsds/
-	cd $(BUILDDIR)/libsds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/libsds/configure --prefix=$(OPREFIX) $(sds_confflags) $(SILENT)
+	cd $(BUILDDIR)/libsds/ && PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) CFLAGS=$(ds_cflags) $(DEVDIR)/libsds/configure --prefix=$(OPREFIX) $(sds_confflags) $(SILENT)
 
 libsds: libsds-configure
 	$(MAKE) -C $(BUILDDIR)/libsds/
@@ -58,7 +60,7 @@ libsds-clean:
 nunc-stans-configure:
 	cd $(DEVDIR)/nunc-stans/ && autoreconf -fiv
 	mkdir -p $(BUILDDIR)/nunc-stans
-	cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" CFLAGS=$(ns_cflags) $(DEVDIR)/nunc-stans/configure --prefix=$(OPREFIX) --enable-debug $(SILENT)
+	cd $(BUILDDIR)/nunc-stans && PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) CFLAGS=$(ns_cflags) $(DEVDIR)/nunc-stans/configure --prefix=$(OPREFIX) --enable-debug $(SILENT)
 
 nunc-stans: nunc-stans-configure 
 	$(MAKE) -C $(BUILDDIR)/nunc-stans/
