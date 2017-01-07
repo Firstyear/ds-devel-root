@@ -46,7 +46,7 @@ builddeps-el7:
 #		python3 python3-devel python3-setuptools python3-six httpd-devel python3-mod_wsgi \
 #		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask python3-nss python3-pytest python3-pep8 
 builddeps-fedora:
-	sudo dnf install --skip-missing -y rpm-build gcc autoconf make automake libtool rpmdevtools american-fuzzy-lop git \
+	sudo dnf install -y rpm-build gcc autoconf make automake libtool rpmdevtools american-fuzzy-lop git \
 		python3 python3-devel python3-setuptools python3-six httpd-devel python3-mod_wsgi \
 		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask python3-nss python3-pytest python3-pep8 \
 		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
@@ -55,11 +55,6 @@ builddeps-fedora:
 	sudo dnf builddep -y rest389/python-rest389.spec
 	sudo dnf builddep -y svrcore/svrcore.spec
 	sudo dnf builddep -y nunc-stans/nunc-stans.spec
-
-builddeps-freebsd:
-	sudo pkg install autotools git openldap-client db5 cyrus-sasl pkgconf nspr nss net-snmp gmake python34 gcc6
-	sudo python3.4 -m ensurepip
-	sudo pip3.4 install six pyasn1 pyasn1-modules pytest python-dateutil
 
 clean: ds-clean nunc-stans-clean svrcore-clean srpms-clean rpms-clean libsds-clean
 
@@ -159,6 +154,7 @@ ds-configure:
 ds: lib389 svrcore nunc-stans ds-configure
 	$(MAKE) -C $(BUILDDIR)/ds
 	sudo $(MAKE) -C $(BUILDDIR)/ds install
+	sudo mkdir -p /opt/dirsrv/etc/sysconfig
 
 ds-rust-clean:
 	$(MAKE) -C $(BUILDDIR)/ds_rust clean; true
@@ -179,15 +175,6 @@ ds-rust-srpms: ds-rust-configure
 ds-rust-rpms: ds-rust-configure
 	$(MAKE) -C $(BUILDDIR)/ds_rust rpms
 	cp $(BUILDDIR)/ds_rust/rpmbuild/RPMS/x86_64/ds-rust* $(DEVDIR)/rpmbuild/RPMS/x86_64/
-
-# Self contained freebsd build, due to the (temporary) differences.
-ds-fbsd: lib389 svrcore
-	cd $(DEVDIR)/ds && autoreconf -fiv
-	mkdir -p $(BUILDDIR)/ds/
-	cd $(BUILDDIR)/ds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/ds/configure --enable-debug --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind --with-openldap=/usr/local --with-db --with-db-inc=/usr/local/include/db5/ --with-db-lib=/usr/local/lib/db5/ --with-sasl --with-sasl-inc=/usr/local/include/sasl/ --with-sasl-lib=/usr/local/lib/sasl2/ --with-netsnmp=/usr/local --with-kerberos-impl=mit --with-kerberos=/usr/local/
-	$(MAKE) -C $(BUILDDIR)/ds
-	sudo $(MAKE) -C $(BUILDDIR)/ds install
-	sudo mkdir -p /opt/dirsrv/etc/sysconfig/
 
 ds-clean:
 	$(MAKE) -C $(BUILDDIR)/ds clean; true
