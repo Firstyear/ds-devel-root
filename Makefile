@@ -13,7 +13,7 @@ MAKE ?= make
 
 ASAN ?= true
 
-PKG_CONFIG_PATH ?= /opt/dirsrv/lib/pkgconfig
+PKG_CONFIG_PATH ?= /opt/dirsrv/lib/pkgconfig:/usr/local/lib/pkgconfig/
 
 # -Wlogical-op  -Wduplicated-cond  -Wshift-overflow=2  -Wnull-dereference -Wstrict-prototypes
 
@@ -24,7 +24,7 @@ ns_cflags = "-O0 -Wall -Wextra -Wunused -fno-omit-frame-pointer -Wstrict-overflo
 ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
 ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-auto-dn-suffix --enable-autobind --enable-cmocka $(SILENT)
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd --enable-asan $(SILENT)
-sds_confflags = --enable-tests --enable-asan --enable-profiling --enable-debug # --enable-profiling
+sds_confflags = --enable-tests --enable-asan --enable-profiling --enable-debug
 else
 # -flto
 ns_cflags = "-O2 -Wall -Wextra -Wunused -Wstrict-overflow -fno-strict-aliasing"
@@ -116,7 +116,7 @@ nunc-stans-rpms: nunc-stans-rpmbuild-prep
 nunc-stans-configure: libsds
 	cd $(DEVDIR)/nunc-stans/ && autoreconf -fiv
 	mkdir -p $(BUILDDIR)/nunc-stans
-	cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) CFLAGS=$(ns_cflags) $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv --enable-debug --enable-tests $(SILENT)
+	cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) CFLAGS=$(ns_cflags) $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv --enable-tests $(SILENT) --enable-debug
 
 nunc-stans: nunc-stans-configure
 	$(MAKE) -C $(BUILDDIR)/nunc-stans/
