@@ -4,9 +4,6 @@ SILENT ?= --enable-silent-rules
 DEVDIR ?= $(shell pwd)
 BUILDDIR ?= ~/build
 LIB389_VERS ?= $(shell cat ./lib389/VERSION | head -n 1)
-# REST389_VERS ?= $(shell cat ./rest389/VERSION | head -n 1)
-NUNC_STANS_VERS ?= $(shell cat ./nunc-stans/VERSION | head -n 1)
-LIBSDS_VERS ?= $(shell cat ./libsds/VERSION | head -n 1)
 PYTHON ?= /usr/bin/python
 # PYTHON ?= /usr/bin/python3
 MAKE ?= make
@@ -19,17 +16,16 @@ PKG_CONFIG_PATH ?= /opt/dirsrv/lib/pkgconfig:/usr/local/lib/pkgconfig/
 
 # Removed the --with-systemd flag to work in containers!
 
+# -Walloc-size-larger-than=1024 -Walloc-zero -Walloca -Walloca-larger-than=1024 -Wbool-operation -Wbuiltin-declaration-mismatch -Wdangling-else -Wduplicate-decl-specifier -Wduplicated-branches -Wexpansion-to-defined -Wformat -Wformat-overflow=2 -Wformat-truncation=2 -Wimplicit-fallthrough=5 -Wint-in-bool-context -Wmemset-elt-size -Wpointer-compare -Wrestrict -Wshadow-compatible-local -Wshadow-local -Wshadow=compatible-local -Wshadow=global -Wshadow=local -Wstringop-overflow=4 -Wswitch-unreachable -Wvla-larger-than=1024
+
 ifeq ($(ASAN), true)
-ns_cflags = "-O0 -Wall -Wextra -Wunused -fno-omit-frame-pointer -Wstrict-overflow -fno-strict-aliasing -fsanitize=address -lasan"
-ds_cflags = "-O0 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
-ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-auto-dn-suffix --enable-autobind --enable-cmocka $(SILENT)
+ds_cflags = "-O0 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
+ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-cmocka --enable-profiling $(SILENT)
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd --enable-asan $(SILENT)
-sds_confflags = --enable-tests --enable-asan --enable-profiling --enable-debug
 else
 # -flto
-ns_cflags = "-O2 -Wall -Wextra -Wunused -Wstrict-overflow -fno-strict-aliasing"
-ds_cflags = "-O2 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
-ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --with-nunc-stans=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind --enable-cmocka $(SILENT)
+ds_cflags = "-O2 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
+ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-cmocka --enable-tcmalloc $(SILENT)
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd $(SILENT)
 endif
 
@@ -40,25 +36,16 @@ builddeps-el7:
 	sudo yum install -y --skip-broken rpm-build gcc autoconf make automake libtool libasan rpmdevtools pam-devel libcmocka libcmocka-devel krb5-server git \
 		python34 python34-devel python34-setuptools python34-six httpd-devel python-pep8 doxygen \
 		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec lib389/python-lib389.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
-	# sudo /usr/bin/easy_install-3.4 pip
-	# sudo pip3.4 install pyasn1 pyasn1-modules # flask python-dateutil mod_wsgi
-	# echo "LoadModule wsgi_module /usr/lib64/python3.4/site-packages/mod_wsgi/server/mod_wsgi-py34.cpython-34m.so" | sudo tee /etc/httpd/conf.modules.d/10-wsgi.conf
 
-
-#		python3 python3-devel python3-setuptools python3-six httpd-devel python3-mod_wsgi \
-#		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask python3-nss python3-pytest python3-pep8 
 builddeps-fedora:
 	sudo dnf install -y rpm-build gcc autoconf make automake libtool rpmdevtools american-fuzzy-lop git \
 		python3 python3-devel python3-setuptools python3-six httpd-devel python3-mod_wsgi \
 		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask python3-nss python3-pytest python3-pep8 \
 		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
-	#sudo dnf builddep -y --spec ds/rpm/389-ds-base.spec.in
 	sudo dnf builddep -y lib389/python-lib389.spec
-	# sudo dnf builddep -y rest389/python-rest389.spec
 	sudo dnf builddep -y svrcore/svrcore.spec
-	sudo dnf builddep -y nunc-stans/nunc-stans.spec
 
-clean: ds-clean nunc-stans-clean svrcore-clean srpms-clean rpms-clean libsds-clean
+clean: ds-clean svrcore-clean srpms-clean rpms-clean
 
 lib389: pyldap
 	$(MAKE) -C $(DEVDIR)/lib389/ build PYTHON=$(PYTHON)
@@ -75,56 +62,6 @@ lib389-srpms: lib389-rpmbuild-prep
 lib389-rpms: lib389-rpmbuild-prep
 	$(MAKE) -C $(DEVDIR)/lib389/ rpm
 	cp ~/rpmbuild/RPMS/noarch/python*-lib389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
-
-libsds-configure:
-	cd $(DEVDIR)/libsds/ && autoreconf -fiv
-	mkdir -p $(BUILDDIR)/libsds/
-	cd $(BUILDDIR)/libsds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/libsds/configure --prefix=/opt/dirsrv $(sds_confflags) $(SILENT)
-
-libsds: libsds-configure
-	$(MAKE) -C $(BUILDDIR)/libsds/
-	$(MAKE) -C $(BUILDDIR)/libsds/ check
-	sudo $(MAKE) -C $(BUILDDIR)/libsds/ install
-
-libsds-clean:
-	$(MAKE) -C $(BUILDDIR)/libsds/ clean; true
-
-libsds-rpmbuild-prep:
-	mkdir -p $(DEVDIR)/libsds/dist/
-	mkdir -p ~/rpmbuild/SOURCES
-	mkdir -p ~/rpmbuild/SPECS
-	cd $(DEVDIR)/libsds; git archive --prefix=libsds-$(LIBSDS_VERS)/ HEAD | xz > $(DEVDIR)/libsds/dist/libsds-$(LIBSDS_VERS).tar.xz
-	cp $(DEVDIR)/libsds/dist/libsds-$(LIBSDS_VERS).tar.xz ~/rpmbuild/SOURCES
-
-nunc-stans-rpmbuild-prep:
-	mkdir -p $(DEVDIR)/nunc-stans/dist/
-	mkdir -p ~/rpmbuild/SOURCES
-	mkdir -p ~/rpmbuild/SPECS
-	cd $(DEVDIR)/nunc-stans; git archive --prefix=nunc-stans-$(NUNC_STANS_VERS)/ HEAD | xz > $(DEVDIR)/nunc-stans/dist/nunc-stans-$(NUNC_STANS_VERS).tar.xz
-	cp $(DEVDIR)/nunc-stans/dist/nunc-stans-$(NUNC_STANS_VERS).tar.xz ~/rpmbuild/SOURCES
-
-nunc-stans-srpms: nunc-stans-rpmbuild-prep
-	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
-	rpmbuild -bs $(DEVDIR)/nunc-stans/nunc-stans.spec
-	cp ~/rpmbuild/SRPMS/nunc-stans*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
-
-nunc-stans-rpms: nunc-stans-rpmbuild-prep
-	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
-	rpmbuild -bb $(DEVDIR)/nunc-stans/nunc-stans.spec
-	cp ~/rpmbuild/RPMS/x86_64/nunc-stans*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/
-
-nunc-stans-configure: libsds
-	cd $(DEVDIR)/nunc-stans/ && autoreconf -fiv
-	mkdir -p $(BUILDDIR)/nunc-stans
-	cd $(BUILDDIR)/nunc-stans && ASAN_OPTIONS="detect_leaks=0" PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) CFLAGS=$(ns_cflags) $(DEVDIR)/nunc-stans/configure --prefix=/opt/dirsrv --enable-tests $(SILENT) --enable-debug
-
-nunc-stans: nunc-stans-configure
-	$(MAKE) -C $(BUILDDIR)/nunc-stans/
-	$(MAKE) -C $(BUILDDIR)/nunc-stans/ check
-	sudo $(MAKE) -C $(BUILDDIR)/nunc-stans/ install
-
-nunc-stans-clean:
-	$(MAKE) -C $(BUILDDIR)/nunc-stans/ clean; true
 
 svrcore-configure:
 	cd $(DEVDIR)/svrcore/ && autoreconf -fiv
@@ -150,15 +87,14 @@ svrcore-srpms: svrcore-configure
 svrcore-rpms-install:
 	sudo yum -y upgrade $(DEVDIR)/rpmbuild/RPMS/x86_64/svrcore*.rpm; true
 
-# Can I improve this to not need svrcore?
-ds-configure: 
+ds-configure:
 	cd $(DEVDIR)/ds && autoreconf -fiv
 	mkdir -p $(BUILDDIR)/ds/
 	cd $(BUILDDIR)/ds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/ds/configure $(ds_confflags)
 
-ds: lib389 svrcore nunc-stans ds-configure
+ds: lib389 svrcore ds-configure
 	$(MAKE) -j8 -C $(BUILDDIR)/ds
-	$(MAKE) -j8 -C $(BUILDDIR)/ds check
+	$(MAKE) -j1 -C $(BUILDDIR)/ds check
 	sudo $(MAKE) -j1 -C $(BUILDDIR)/ds install
 	sudo mkdir -p /opt/dirsrv/etc/sysconfig
 
@@ -185,17 +121,14 @@ ds-rust-rpms: ds-rust-configure
 ds-clean:
 	$(MAKE) -C $(BUILDDIR)/ds clean; true
 
-ds-rpms: ds-configure nunc-stans-rpmbuild-prep libsds-rpmbuild-prep
+ds-rpms: ds-configure
 	mkdir -p $(BUILDDIR)/ds/rpmbuild/SOURCES/
-	### WARNING: Only needed until 1.3.7
-	cp $(DEVDIR)/nunc-stans/dist/nunc-stans-0.2.1.tar.xz $(BUILDDIR)/ds/rpmbuild/SOURCES/
-	cp $(DEVDIR)/nunc-stans/dist/nunc-stans-$(NUNC_STANS_VERS).tar.xz $(BUILDDIR)/ds/rpmbuild/SOURCES/
-	cp $(DEVDIR)/libsds/dist/libsds-$(LIBSDS_VERS).tar.xz $(BUILDDIR)/ds/rpmbuild/SOURCES/
 	$(MAKE) -C $(BUILDDIR)/ds rpms
 	cp $(BUILDDIR)/ds/rpmbuild/RPMS/x86_64/389-ds-base*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/
+	cp $(BUILDDIR)/ds/rpmbuild/RPMS/noarch/*389-ds-base*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
+	cp $(BUILDDIR)/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
-ds-srpms: ds-configure nunc-stans-rpmbuild-prep
-	cp $(DEVDIR)/nunc-stans/dist/nunc-stans-$(NUNC_STANS_VERS).tar.xz $(BUILDDIR)/ds/rpmbuild/SOURCES/
+ds-srpms: ds-configure
 	$(MAKE) -C $(BUILDDIR)/ds srpm
 	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
 	cp $(BUILDDIR)/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
@@ -211,51 +144,37 @@ ds-setup-py2: lib389
 
 clone:
 	git clone ssh://git.fedorahosted.org/git/389/ds.git
-	git clone ssh://git@pagure.io/nunc-stans.git
 	git clone ssh://git.fedorahosted.org/git/389/lib389.git
 	git clone ssh://git@pagure.io/rest389.git
-	# git clone ssh://git@github.com:Firstyear/idm389.git
 	git clone ssh://git@pagure.io/svrcore.git
-	# git clone ssh://github.com/pyldap/pyldap.git
 
 clone-anon:
 	git clone https://git.fedorahosted.org/git/389/ds.git
 	git clone https://git.fedorahosted.org/git/389/lib389.git
-	git clone https://pagure.io/nunc-stans.git
 	git clone https://pagure.io/rest389.git
 	git clone https://pagure.io/svrcore.git
-	# git clone https://github.com/Firstyear/idm389.git
-	# git clone https://github.com/pyldap/pyldap.git
 
 pull:
 	cd ds; git pull
 	cd lib389; git pull
 	cd rest389; git pull
-	cd idm389; git pull
-	cd nunc-stans; git pull
 	cd svrcore; git pull
-	# cd pyldap; git pull
 
-# idm389-rpms
 rpms-clean:
 	cd $(DEVDIR)/rpmbuild/; find . -name '*.rpm' -exec rm '{}' \; ; true
 
 rpms: svrcore-rpms svrcore-rpms-install lib389-rpms ds-rpms
-# rest389-rpms idm389-rpms
 
 rpms-install:
 	sudo yum install -y $(DEVDIR)/rpmbuild/RPMS/noarch/*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/*.rpm
 
 srpms-clean:
-	# rm ~/rpmbuild/SRPMS/python-rest389*.src.rpm ; true
 	rm $(BUILDDIR)/svrcore/rpmbuild/SRPMS/svrcore*.src.rpm; true
 	rm $(BUILDDIR)/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm; true
-	# rm $(DEVDIR)/idm389/dist/*; true
 	rm $(DEVDIR)/lib389/dist/*; true
 	rm $(DEVDIR)/rpmbuild/SRPMS/*; true
 
 srpms: ds-srpms lib389-srpms svrcore-srpms
-# rest389-srpms idm389-srpms
 
 # We need to use the wait version, else the deps aren't ready, and these builds
 # are linked!
@@ -265,8 +184,6 @@ copr:
 	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/389-ds-base*.src.rpm | head -n 1`
 	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/ds-rust-plugins*.src.rpm | head -n 1`
 	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-lib389*.src.rpm | head -n 1`
-	# copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-rest389*.src.rpm | head -n 1`
-	# copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-idm389*.src.rpm | head -n 1`
 
 copr-echo:
 	# Upload all the sprms to copr as builds
@@ -274,50 +191,4 @@ copr-echo:
 	echo copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/389-ds-base*.src.rpm | head -n 1`
 	echo copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/ds-rust-plugins*.src.rpm | head -n 1`
 	echo copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-lib389*.src.rpm | head -n 1`
-	# echo copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-rest389*.src.rpm | head -n 1`
-	# echo copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-idm389*.src.rpm | head -n 1`
-
-
-#### Old unused targets
-# 
-# pyldap:
-# 	cd $(DEVDIR)/pyldap/ && $(PYTHON) setup.py build
-# 	cd $(DEVDIR)/pyldap/ && sudo $(PYTHON) setup.py install --skip-build --force --root=/
-# 
-# rest389: lib389
-# 	$(MAKE) -C $(DEVDIR)/rest389/ build PYTHON=$(PYTHON)
-# 	sudo $(MAKE) -C $(DEVDIR)/rest389/ install PYTHON=$(PYTHON)
-# 
-# rest389-rpmbuild-prep:
-# 	mkdir -p $(DEVDIR)/rest389/dist
-# 	mkdir -p ~/rpmbuild/SOURCES
-# 	mkdir -p ~/rpmbuild/SPECS
-# 	cd $(DEVDIR)/rest389/ && git archive --prefix=python-rest389-$(REST389_VERS)-1/ HEAD | bzip2 > $(DEVDIR)/rest389/dist/python-rest389-$(REST389_VERS)-1.tar.bz2
-# 	cp $(DEVDIR)/rest389/dist/*.tar.bz2 ~/rpmbuild/SOURCES/
-# 
-# rest389-srpms: rest389-rpmbuild-prep
-# 	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
-# 	rpmbuild -bs $(DEVDIR)/rest389/python-rest389.spec
-# 	cp ~/rpmbuild/SRPMS/python-rest389*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
-# 
-# rest389-rpms: rest389-rpmbuild-prep
-# 	rpmbuild -bb $(DEVDIR)/rest389/python-rest389.spec
-# 	cp ~/rpmbuild/RPMS/noarch/python*-rest389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
-# 
-# idm389: lib389
-# 	$(MAKE) -C $(DEVDIR)/idm389/ build PYTHON=$(PYTHON)
-# 	sudo $(MAKE) -C $(DEVDIR)/idm389/ install PYTHON=$(PYTHON)
-# 
-# idm389-rpmbuild-prep:
-# 	$(MAKE) -C $(DEVDIR)/idm389/ rpmbuild-prep
-# 
-# idm389-srpms: idm389-rpmbuild-prep
-# 	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
-# 	$(MAKE) -C $(DEVDIR)/idm389/ srpm
-# 	cp $(DEVDIR)/idm389/dist/python-idm389*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
-# 
-# idm389-rpms: idm389-rpmbuild-prep
-# 	$(MAKE) -C $(DEVDIR)/idm389/ rpm
-# 	cp ~/rpmbuild/RPMS/noarch/python*-idm389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
-# 
 
