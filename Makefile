@@ -20,12 +20,12 @@ PKG_CONFIG_PATH ?= /opt/dirsrv/lib/pkgconfig:/usr/local/lib/pkgconfig/
 
 ifeq ($(ASAN), true)
 ds_cflags = "-O0 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
-ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-cmocka --enable-profiling $(SILENT)
+ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-profiling --enable-asan --enable-cmocka --enable-profiling $(SILENT)
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd --enable-asan $(SILENT)
 else
 # -flto
 ds_cflags = "-O2 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
-ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-cmocka --enable-tcmalloc $(SILENT)
+ds_confflags = --with-svrcore=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-profiling --enable-cmocka $(SILENT) --enable-tcmalloc
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd $(SILENT)
 endif
 
@@ -33,8 +33,7 @@ all:
 	echo "make ds|nunc-stans|lib389|ds-setup"
 
 builddeps-el7:
-	sudo yum install -y --skip-broken rpm-build gcc autoconf make automake libtool libasan rpmdevtools pam-devel libcmocka libcmocka-devel krb5-server git \
-		python34 python34-devel python34-setuptools python34-six httpd-devel python-pep8 doxygen \
+	sudo yum install -y --skip-broken rpm-build rpmdevtools git \
 		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec lib389/python-lib389.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
 
 builddeps-fedora:
@@ -133,14 +132,16 @@ ds-srpms: ds-configure
 	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
 	cp $(BUILDDIR)/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
-ds-setup:
+ds-setup: lib389
+	sudo python /usr/sbin/dsadm instance example > /tmp/ds-setup.inf
+	sudo python /usr/sbin/dsadm -v instance create -f /tmp/ds-setup.inf --IsolemnlyswearthatIamuptonogood --containerised
+
+ds-setup-py3: lib389
+	sudo python3 /usr/sbin/dsadm instance example > /tmp/ds-setup.inf
+	sudo python3 /usr/sbin/dsadm -v instance create -f /tmp/ds-setup.inf --IsolemnlyswearthatIamuptonogood --containerised
+
+ds-setup-pl:
 	sudo /opt/dirsrv/sbin/setup-ds.pl --silent --debug --file=$(DEVDIR)/setup.inf General.FullMachineName=$$(hostname)
-
-ds-setup-py: lib389
-	sudo PYTHONPATH=$(DEVDIR)/lib389 PREFIX=/opt/dirsrv /usr/sbin/dsadm -v instance create -f /usr/share/lib389/examples/ds-setup.inf --IsolemnlyswearthatIamuptonogood --containerised
-
-ds-setup-py2: lib389
-	sudo PYTHONPATH=$(DEVDIR)/lib389 PREFIX=/opt/dirsrv python /usr/sbin/dsadm -v instance create -f /usr/share/lib389/examples/ds-setup.inf --IsolemnlyswearthatIamuptonogood --containerised
 
 clone:
 	git clone ssh://git.fedorahosted.org/git/389/ds.git
