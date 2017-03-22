@@ -16,16 +16,17 @@ PKG_CONFIG_PATH ?= /opt/dirsrv/lib/pkgconfig:/usr/local/lib/pkgconfig/
 
 # Removed the --with-systemd flag to work in containers!
 
-# -Walloc-size-larger-than=1024 -Walloc-zero -Walloca -Walloca-larger-than=1024 -Wbool-operation -Wbuiltin-declaration-mismatch -Wdangling-else -Wduplicate-decl-specifier -Wduplicated-branches -Wexpansion-to-defined -Wformat -Wformat-overflow=2 -Wformat-truncation=2 -Wimplicit-fallthrough=5 -Wint-in-bool-context -Wmemset-elt-size -Wpointer-compare -Wrestrict -Wshadow-compatible-local -Wshadow-local -Wshadow=compatible-local -Wshadow=global -Wshadow=local -Wstringop-overflow=4 -Wswitch-unreachable -Wvla-larger-than=1024
-
 ifeq ($(ASAN), true)
-ds_cflags = "-O0 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
-ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-profiling --enable-asan --enable-cmocka --enable-profiling $(SILENT)
+# 																																				v-- comment here
+ds_cflags = "-O0 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable "
+ #-Walloc-size-larger-than=1024 -Walloc-zero -Walloca -Walloca-larger-than=1024 -Wbool-operation -Wbuiltin-declaration-mismatch -Wdangling-else -Wduplicate-decl-specifier -Wduplicated-branches -Wexpansion-to-defined -Wformat -Wformat-overflow=2 -Wformat-truncation=2 -Wimplicit-fallthrough=5 -Wint-in-bool-context -Wmemset-elt-size -Wpointer-compare -Wrestrict -Wshadow-compatible-local -Wshadow-local -Wshadow=compatible-local -Wshadow=global -Wshadow=local -Wstringop-overflow=4 -Wswitch-unreachable -Wvla-larger-than=1024"
+ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-cmocka --enable-profiling $(SILENT)
+ #--enable-profiling 
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd --enable-asan $(SILENT)
 else
 # -flto
 ds_cflags = "-O2 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
-ds_confflags = --with-svrcore=/opt/dirsrv --enable-nunc-stans  --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-profiling --enable-cmocka $(SILENT) --enable-tcmalloc
+ds_confflags = --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-cmocka $(SILENT) #--enable-tcmalloc --enable-profiling
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd $(SILENT)
 endif
 
@@ -33,16 +34,15 @@ all:
 	echo "make ds|nunc-stans|lib389|ds-setup"
 
 builddeps-el7:
+	sudo yum install -y epel-release
 	sudo yum install -y --skip-broken rpm-build rpmdevtools git \
 		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec lib389/python-lib389.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
 
 builddeps-fedora:
-	sudo dnf install -y rpm-build gcc autoconf make automake libtool rpmdevtools american-fuzzy-lop git \
-		python3 python3-devel python3-setuptools python3-six httpd-devel python3-mod_wsgi \
-		python3-pyasn1 python3-pyasn1-modules python3-dateutil python3-flask python3-nss python3-pytest python3-pep8 \
+	sudo dnf install --setopt=strict=False -y rpm-build gcc autoconf make automake libtool rpmdevtools american-fuzzy-lop git \
 		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
-	sudo dnf builddep -y lib389/python-lib389.spec
-	sudo dnf builddep -y svrcore/svrcore.spec
+	sudo dnf builddep --setopt=strict=False -y lib389/python-lib389.spec
+	sudo dnf builddep --setopt=strict=False -y svrcore/svrcore.spec
 
 clean: ds-clean svrcore-clean srpms-clean rpms-clean
 
