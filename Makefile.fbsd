@@ -6,9 +6,7 @@ SILENT ?=
 DEVDIR ?= $(shell pwd)
 BUILDDIR ?= ~/build
 LIB389_VERS ?= $(shell cat ./lib389/VERSION | head -n 1)
-REST389_VERS ?= $(shell cat ./rest389/VERSION | head -n 1)
-NUNC_STANS_VERS ?= $(shell cat ./nunc-stans/VERSION | head -n 1)
-PYTHON ?= /usr/bin/python3
+PYTHON ?= /usr/local/bin/python2
 MAKE ?= make
 PKG_CONFIG_PATH ?= /usr/local/lib/pkgconfig:/opt/dirsrv/lib/pkgconfig
 
@@ -18,11 +16,9 @@ ASAN ?= true
 
 # Removed the --with-systemd flag to work in containers!
 
-ns_cflags = "-O2 -Wall -Wextra -Wunused -Wstrict-overflow -fno-strict-aliasing"
 ds_cflags = "-O2 -Wall -Wextra -Wunused -Wno-unused-parameter -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
-sds_confflags = --enable-debug --enable-tests
 # ds_confflags = --enable-debug --with-svrcore=$(OPREFIX) --with-nunc-stans=$(OPREFIX) --enable-nunc-stans  --prefix=$(OPREFIX) --enable-gcc-security --with-openldap --enable-auto-dn-suffix --enable-autobind $(SILENT)
-ds_confflags = --enable-debug --with-svrcore=$(OPREFIX) --prefix=$(OPREFIX) --enable-gcc-security --with-openldap --with-openldap=/usr/local --with-db --with-db-inc=/usr/local/include/db5/ --with-db-lib=/usr/local/lib/db5/ --with-sasl --with-sasl-inc=/usr/local/include/sasl/ --with-sasl-lib=/usr/local/lib/sasl2/ --with-netsnmp=/usr/local --with-kerberos-impl=mit --with-kerberos=/usr/local/
+ds_confflags = --enable-debug --enable-cmocka --with-svrcore=$(OPREFIX) --prefix=$(OPREFIX) --enable-gcc-security --with-openldap --with-openldap=/usr/local --with-db --with-db-inc=/usr/local/include/db5/ --with-db-lib=/usr/local/lib/db5/ --with-sasl --with-sasl-inc=/usr/local/include/sasl/ --with-sasl-lib=/usr/local/lib/sasl2/ --with-netsnmp=/usr/local --with-kerberos=/usr/local/ $(SILENT)
 
 svrcore_cflags = --prefix=$(OPREFIX) --enable-debug --with-systemd $(SILENT)
 
@@ -30,11 +26,11 @@ all:
 	echo "make ds|nunc-stans|lib389|ds-setup"
 
 builddeps:
-	sudo pkg install autotools git openldap-client db5 cyrus-sasl pkgconf nspr nss net-snmp gmake python34 libevent2 doxygen
+	sudo pkg install autotools git openldap-client db5 cyrus-sasl pkgconf nspr nss net-snmp gmake python34 libevent2 doxygen cmocka
 	sudo python3.4 -m ensurepip
 	sudo pip3.4 install six pyasn1 pyasn1-modules pytest python-dateutil
 
-clean: ds-clean nunc-stans-clean svrcore-clean
+clean: ds-clean svrcore-clean
 
 pyldap:
 	cd $(DEVDIR)/pyldap/ && $(PYTHON) setup.py build
@@ -59,7 +55,10 @@ svrcore-clean:
 ds-configure: 
 	cd $(DEVDIR)/ds && autoreconf -fiv
 	mkdir -p $(BUILDDIR)/ds/
-	cd $(BUILDDIR)/ds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/ds/configure $(ds_confflags) $(SILENT)
+	cd $(BUILDDIR)/ds/ && PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) CFLAGS=$(ds_cflags) $(DEVDIR)/ds/configure $(ds_confflags)
+
+ds-configure-test:
+	echo PKG_CONFIG_PATH='$(PKG_CONFIG_PATH)' CFLAGS='$(ds_cflags)' $(DEVDIR)/ds/configure $(ds_confflags)
 
 ds-rust-clean:
 	$(MAKE) -C $(BUILDDIR)/ds_rust clean; true
@@ -75,9 +74,6 @@ ds-rust: ds-rust-configure
 
 # Self contained freebsd build, due to the (temporary) differences.
 ds: lib389 svrcore ds-configure
-	cd $(DEVDIR)/ds && autoreconf -fiv
-	mkdir -p $(BUILDDIR)/ds/
-	cd $(BUILDDIR)/ds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/ds/configure
 	$(MAKE) -C $(BUILDDIR)/ds
 	sudo $(MAKE) -C $(BUILDDIR)/ds install
 	sudo mkdir -p $(OPREFIX)/etc/sysconfig/
