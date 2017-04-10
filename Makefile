@@ -18,15 +18,14 @@ PKG_CONFIG_PATH ?= /opt/dirsrv/lib/pkgconfig:/usr/local/lib/pkgconfig/
 
 ifeq ($(ASAN), true)
 # 																																				v-- comment here
-ds_cflags = "-O0 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable "
- #-Walloc-size-larger-than=1024 -Walloc-zero -Walloca -Walloca-larger-than=1024 -Wbool-operation -Wbuiltin-declaration-mismatch -Wdangling-else -Wduplicate-decl-specifier -Wduplicated-branches -Wexpansion-to-defined -Wformat -Wformat-overflow=2 -Wformat-truncation=2 -Wimplicit-fallthrough=5 -Wint-in-bool-context -Wmemset-elt-size -Wpointer-compare -Wrestrict -Wshadow-compatible-local -Wshadow-local -Wshadow=compatible-local -Wshadow=global -Wshadow=local -Wstringop-overflow=4 -Wswitch-unreachable -Wvla-larger-than=1024"
+ds_cflags = "-O0 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wsign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable " #-Walloc-size-larger-than=1024 -Walloc-zero -Walloca -Walloca-larger-than=1024 -Wbool-operation -Wbuiltin-declaration-mismatch -Wdangling-else -Wduplicate-decl-specifier -Wduplicated-branches -Wexpansion-to-defined -Wformat -Wformat-overflow=2 -Wformat-truncation=2 -Wimplicit-fallthrough=2 -Wint-in-bool-context -Wmemset-elt-size -Wpointer-compare -Wrestrict -Wshadow-compatible-local -Wshadow-local -Wshadow=compatible-local -Wshadow=global -Wshadow=local -Wstringop-overflow=4 -Wswitch-unreachable -Wvla-larger-than=1024"
 ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-cmocka --enable-profiling $(SILENT)
  #--enable-profiling 
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd --enable-asan $(SILENT)
 else
 # -flto
 ds_cflags = "-O2 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
-ds_confflags = --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-cmocka $(SILENT) #--enable-tcmalloc --enable-profiling
+ds_confflags = --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-cmocka $(SILENT) #--enable-profiling #--enable-tcmalloc
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd $(SILENT)
 endif
 
@@ -35,12 +34,14 @@ all:
 
 builddeps-el7:
 	sudo yum install -y epel-release
-	sudo yum install -y --skip-broken rpm-build rpmdevtools git \
-		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec lib389/python-lib389.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
+	sudo yum install -y @buildsys-build rpmdevtools git
+	sudo yum install -y --skip-broken \
+		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec lib389/python-lib389.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/" | grep -v pkgversion | sort | uniq|  tr '\n' ' '`
 
 builddeps-fedora:
-	sudo dnf install --setopt=strict=False -y rpm-build gcc autoconf make automake libtool rpmdevtools american-fuzzy-lop git \
-		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/"`
+	sudo dnf install -y @buildsys-build rpmdevtools git
+	sudo dnf install --setopt=strict=False -y \
+		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/" | grep -v pkgversion | sort | uniq | tr '\n' ' '`
 	sudo dnf builddep --setopt=strict=False -y lib389/python-lib389.spec
 	sudo dnf builddep --setopt=strict=False -y svrcore/svrcore.spec
 
@@ -56,11 +57,11 @@ lib389-rpmbuild-prep:
 lib389-srpms: lib389-rpmbuild-prep
 	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
 	$(MAKE) -C $(DEVDIR)/lib389/ srpm
-	cp $(DEVDIR)/lib389/dist/python-lib389*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
+	cp $(DEVDIR)/lib389/rpmbuild/SRPMS/python-lib389*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
 lib389-rpms: lib389-rpmbuild-prep
 	$(MAKE) -C $(DEVDIR)/lib389/ rpm
-	cp ~/rpmbuild/RPMS/noarch/python*-lib389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
+	cp $(DEVDIR)/lib389/rpmbuild/RPMS/noarch/python*-lib389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
 
 svrcore-configure:
 	cd $(DEVDIR)/svrcore/ && autoreconf -fiv
@@ -133,12 +134,12 @@ ds-srpms: ds-configure
 	cp $(BUILDDIR)/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
 ds-setup: lib389
-	sudo python /usr/sbin/dsadm instance example > /tmp/ds-setup.inf
-	sudo python /usr/sbin/dsadm -v instance create -f /tmp/ds-setup.inf --IsolemnlyswearthatIamuptonogood --containerised
+	sudo python /usr/sbin/dscreate example > /tmp/ds-setup.inf
+	sudo python /usr/sbin/dscreate -v fromfile /tmp/ds-setup.inf --IsolemnlyswearthatIamuptonogood --containerised
 
 ds-setup-py3: lib389
-	sudo python3 /usr/sbin/dsadm instance example > /tmp/ds-setup.inf
-	sudo python3 /usr/sbin/dsadm -v instance create -f /tmp/ds-setup.inf --IsolemnlyswearthatIamuptonogood --containerised
+	sudo python3 /usr/sbin/dscreate example > /tmp/ds-setup.inf
+	sudo python3 /usr/sbin/dscreate -v fromfile /tmp/ds-setup.inf --IsolemnlyswearthatIamuptonogood --containerised
 
 ds-setup-pl:
 	sudo /opt/dirsrv/sbin/setup-ds.pl --silent --debug --file=$(DEVDIR)/setup.inf General.FullMachineName=$$(hostname)
