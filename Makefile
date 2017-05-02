@@ -18,14 +18,15 @@ PKG_CONFIG_PATH ?= /opt/dirsrv/lib/pkgconfig:/usr/local/lib/pkgconfig/
 
 ifeq ($(ASAN), true)
 # 																																				v-- comment here
-ds_cflags = "-O0 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wsign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable " #-Walloc-size-larger-than=1024 -Walloc-zero -Walloca -Walloca-larger-than=1024 -Wbool-operation -Wbuiltin-declaration-mismatch -Wdangling-else -Wduplicate-decl-specifier -Wduplicated-branches -Wexpansion-to-defined -Wformat -Wformat-overflow=2 -Wformat-truncation=2 -Wimplicit-fallthrough=2 -Wint-in-bool-context -Wmemset-elt-size -Wpointer-compare -Wrestrict -Wshadow-compatible-local -Wshadow-local -Wshadow=compatible-local -Wshadow=global -Wshadow=local -Wstringop-overflow=4 -Wswitch-unreachable -Wvla-larger-than=1024"
-ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-asan --enable-cmocka --enable-profiling $(SILENT)
+ds_cflags = "-march=native -O0 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wsign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable -Walloc-size-larger-than=1024 -Walloc-zero -Walloca -Walloca-larger-than=512 -Wbool-operation -Wbuiltin-declaration-mismatch -Wdangling-else -Wduplicate-decl-specifier -Wduplicated-branches -Wexpansion-to-defined -Wformat -Wformat-overflow=2 -Wformat-truncation=2 -Wimplicit-fallthrough=2 -Wint-in-bool-context -Wmemset-elt-size -Wpointer-compare -Wrestrict -Wshadow-compatible-local -Wshadow-local -Wshadow=compatible-local -Wshadow=global -Wshadow=local -Wstringop-overflow=4 -Wswitch-unreachable -Wvla-larger-than=1024"
+ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --enable-gcc-security --enable-asan --enable-cmocka $(SILENT) --with-openldap
+# --prefix=/opt/dirsrv 
  #--enable-profiling 
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd --enable-asan $(SILENT)
 else
 # -flto
-ds_cflags = "-O2 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable"
-ds_confflags = --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --with-openldap --enable-cmocka $(SILENT) #--enable-profiling #--enable-tcmalloc
+ds_cflags = "-march=native -O2 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable -g3"
+ds_confflags = --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --enable-cmocka $(SILENT) #--enable-profiling #--enable-tcmalloc
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd $(SILENT)
 endif
 
@@ -39,6 +40,7 @@ builddeps-el7:
 		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec lib389/python-lib389.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/" | grep -v pkgversion | sort | uniq|  tr '\n' ' '`
 
 builddeps-fedora:
+	sudo dnf upgrade -y
 	sudo dnf install -y @buildsys-build rpmdevtools git
 	sudo dnf install --setopt=strict=False -y \
 		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/" | grep -v pkgversion | sort | uniq | tr '\n' ' '`
@@ -143,6 +145,9 @@ ds-setup-py3: lib389
 
 ds-setup-pl:
 	sudo /opt/dirsrv/sbin/setup-ds.pl --silent --debug --file=$(DEVDIR)/setup.inf General.FullMachineName=$$(hostname)
+
+ds-run-nightly:
+	sudo py.test -s -v --ignore=ds/dirsrvtests/tests/tickets/ticket47838_test.py ds/dirsrvtests/tests/tickets/ ds/dirsrvtests/tests/suites/
 
 clone:
 	git clone ssh://git.fedorahosted.org/git/389/ds.git
