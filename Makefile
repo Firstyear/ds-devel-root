@@ -4,8 +4,8 @@ SILENT ?= --enable-silent-rules
 DEVDIR ?= $(shell pwd)
 BUILDDIR ?= ~/build
 LIB389_VERS ?= $(shell cat ./lib389/VERSION | head -n 1)
-PYTHON ?= /usr/bin/python
-# PYTHON ?= /usr/bin/python3
+# PYTHON ?= /usr/bin/python
+PYTHON ?= /usr/bin/python3
 MAKE ?= make
 
 ASAN ?= true
@@ -18,6 +18,7 @@ PKG_CONFIG_PATH ?= /opt/dirsrv/lib/pkgconfig:/usr/local/lib/pkgconfig/
 
 ifeq ($(ASAN), true)
 # 																																				v-- comment here
+# ds_cflags = "-march=native -O0 " # -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wsign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable -Walloc-size-larger-than=1024 -Walloc-zero -Walloca -Walloca-larger-than=512 -Wbool-operation -Wbuiltin-declaration-mismatch -Wdangling-else -Wduplicate-decl-specifier -Wduplicated-branches -Wexpansion-to-defined -Wformat -Wformat-overflow=2 -Wformat-truncation=2 -Wimplicit-fallthrough=2 -Wint-in-bool-context -Wmemset-elt-size -Wpointer-compare -Wrestrict -Wshadow-compatible-local -Wshadow-local -Wshadow=compatible-local -Wshadow=global -Wshadow=local -Wstringop-overflow=4 -Wswitch-unreachable -Wvla-larger-than=1024"
 ds_cflags = "-march=native -O0 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wsign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable -Walloc-size-larger-than=1024 -Walloc-zero -Walloca -Walloca-larger-than=512 -Wbool-operation -Wbuiltin-declaration-mismatch -Wdangling-else -Wduplicate-decl-specifier -Wduplicated-branches -Wexpansion-to-defined -Wformat -Wformat-overflow=2 -Wformat-truncation=2 -Wimplicit-fallthrough=2 -Wint-in-bool-context -Wmemset-elt-size -Wpointer-compare -Wrestrict -Wshadow-compatible-local -Wshadow-local -Wshadow=compatible-local -Wshadow=global -Wshadow=local -Wstringop-overflow=4 -Wswitch-unreachable -Wvla-larger-than=1024"
 ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --enable-gcc-security --enable-asan --enable-cmocka $(SILENT) --with-openldap
 # --prefix=/opt/dirsrv 
@@ -26,7 +27,7 @@ svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd --enable-asa
 else
 # -flto
 ds_cflags = "-march=native -O2 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable -g3"
-ds_confflags = --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --enable-cmocka $(SILENT) #--enable-profiling #--enable-tcmalloc
+ds_confflags = --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --enable-cmocka $(SILENT) --enable-tcmalloc #--enable-profiling --enable-tcmalloc
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd $(SILENT)
 endif
 
@@ -41,11 +42,16 @@ builddeps-el7:
 
 builddeps-fedora:
 	sudo dnf upgrade -y
-	sudo dnf install -y @buildsys-build rpmdevtools git
-	sudo dnf install --setopt=strict=False -y \
-		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/" | grep -v pkgversion | sort | uniq | tr '\n' ' '`
+	sudo dnf install -y @buildsys-build rpmdevtools git wget
 	sudo dnf builddep --setopt=strict=False -y lib389/python-lib389.spec
 	sudo dnf builddep --setopt=strict=False -y svrcore/svrcore.spec
+	sudo dnf install --setopt=strict=False -y \
+		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in lib389/python-lib389.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | sed 's/%{python3_pkgversion}/3/g' | grep -v "^/" | grep -v pkgversion | sort | uniq | tr '\n' ' '`
+	if [ ! -f ./rustup-init ]; then \
+		wget https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init && \
+		chmod +x ./rustup-init; \
+	fi
+	./rustup-init --default-toolchain nightly -y
 
 clean: ds-clean svrcore-clean srpms-clean rpms-clean
 
