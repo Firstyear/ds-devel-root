@@ -1,4 +1,4 @@
-.PHONY: ds-setup lib389 rest389 pyldap
+.PHONY: ds-setup lib389 rest389
 
 SILENT ?= --enable-silent-rules
 DEVDIR ?= $(shell pwd)
@@ -12,22 +12,19 @@ ASAN ?= true
 
 PKG_CONFIG_PATH ?= /opt/dirsrv/lib/pkgconfig:/usr/local/lib/pkgconfig/
 
-# -Wlogical-op  -Wduplicated-cond  -Wshift-overflow=2  -Wnull-dereference -Wstrict-prototypes
-
 # Removed the --with-systemd flag to work in containers!
 
 ifeq ($(ASAN), true)
-# 																																				v-- comment here
-# ds_cflags = "-march=native -O0 " # -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wsign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable -Walloc-size-larger-than=1024 -Walloc-zero -Walloca -Walloca-larger-than=512 -Wbool-operation -Wbuiltin-declaration-mismatch -Wdangling-else -Wduplicate-decl-specifier -Wduplicated-branches -Wexpansion-to-defined -Wformat -Wformat-overflow=2 -Wformat-truncation=2 -Wimplicit-fallthrough=2 -Wint-in-bool-context -Wmemset-elt-size -Wpointer-compare -Wrestrict -Wshadow-compatible-local -Wshadow-local -Wshadow=compatible-local -Wshadow=global -Wshadow=local -Wstringop-overflow=4 -Wswitch-unreachable -Wvla-larger-than=1024"
-ds_cflags = "-march=native -O0 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wsign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable -Walloc-size-larger-than=1024 -Walloc-zero -Walloca -Walloca-larger-than=512 -Wbool-operation -Wbuiltin-declaration-mismatch -Wdangling-else -Wduplicate-decl-specifier -Wduplicated-branches -Wexpansion-to-defined -Wformat -Wformat-overflow=2 -Wformat-truncation=2 -Wimplicit-fallthrough=2 -Wint-in-bool-context -Wmemset-elt-size -Wpointer-compare -Wrestrict -Wshadow-compatible-local -Wshadow-local -Wshadow=compatible-local -Wshadow=global -Wshadow=local -Wstringop-overflow=4 -Wswitch-unreachable -Wvla-larger-than=1024"
-ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --enable-gcc-security --enable-asan --enable-cmocka $(SILENT) --with-openldap
-# --prefix=/opt/dirsrv 
- #--enable-profiling 
-svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd --enable-asan $(SILENT)
+ds_cflags = "-march=native -O0 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable -Walloc-zero -Walloca -Walloca-larger-than=512 -Wbool-operation -Wbuiltin-declaration-mismatch -Wdangling-else -Wduplicate-decl-specifier -Wduplicated-branches -Wexpansion-to-defined -Wformat -Wformat-overflow=2 -Wformat-truncation=2 -Wimplicit-fallthrough=2 -Wint-in-bool-context -Wmemset-elt-size -Wpointer-compare -Wrestrict -Wshadow-compatible-local -Wshadow-local -Wshadow=compatible-local -Wshadow=global -Wshadow=local -Wstringop-overflow=4 -Wswitch-unreachable -Wunused-result"
+# -Walloc-size-larger-than=1024 -Wvla-larger-than=1024
+ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --enable-gcc-security --enable-cmocka $(SILENT) --with-openldap --enable-asan --enable-rust
+ #--enable-profiling
+svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd $(SILENT) --enable-asan
 else
 # -flto
-ds_cflags = "-march=native -O2 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable -g3"
-ds_confflags = --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --enable-cmocka $(SILENT) --enable-tcmalloc #--enable-profiling --enable-tcmalloc
+ds_cflags = "-march=native -O2 -g3"
+ds_confflags = --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --enable-cmocka $(SILENT) --enable-rust
+#--enable-profiling --enable-tcmalloc
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd $(SILENT)
 endif
 
@@ -55,7 +52,7 @@ builddeps-fedora:
 
 clean: ds-clean svrcore-clean srpms-clean rpms-clean
 
-lib389: pyldap
+lib389:
 	$(MAKE) -C $(DEVDIR)/lib389/ build PYTHON=$(PYTHON)
 	sudo $(MAKE) -C $(DEVDIR)/lib389/ install PYTHON=$(PYTHON)
 

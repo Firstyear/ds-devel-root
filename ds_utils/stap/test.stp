@@ -1,0 +1,10 @@
+#! /usr/bin/env stap
+
+function time() {
+    return gettimeofday_us()
+}
+
+probe process("/bin/ls").function("malloc") {
+    printf("Entered malloc")
+}
+
