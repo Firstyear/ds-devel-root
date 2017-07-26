@@ -1,0 +1,9 @@
+[submodule "ds"]
+	path = ds
+	url = ssh://git@pagure.io/389-ds-base.git
+[submodule "lib389"]
+	path = lib389
+	url = ssh://git@pagure.io/lib389.git
+[submodule "svrcore"]
+	path = svrcore
+	url = ssh://git@pagure.io/svrcore.git
