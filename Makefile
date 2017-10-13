@@ -4,7 +4,6 @@ SILENT ?= --enable-silent-rules
 DEVDIR ?= $(shell pwd)
 BUILDDIR ?= ~/build
 LIB389_VERS ?= $(shell cat ./lib389/VERSION | head -n 1)
-# PYTHON ?= /usr/bin/python
 PYTHON ?= /usr/bin/python3
 MAKE ?= make
 
@@ -18,12 +17,13 @@ ifeq ($(ASAN), true)
 ds_cflags = "-march=native -O0 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable -Walloc-zero -Walloca -Walloca-larger-than=512 -Wbool-operation -Wbuiltin-declaration-mismatch -Wdangling-else -Wduplicate-decl-specifier -Wduplicated-branches -Wexpansion-to-defined -Wformat -Wformat-overflow=2 -Wformat-truncation=2 -Wimplicit-fallthrough=2 -Wint-in-bool-context -Wmemset-elt-size -Wpointer-compare -Wrestrict -Wshadow-compatible-local -Wshadow-local -Wshadow=compatible-local -Wshadow=global -Wshadow=local -Wstringop-overflow=4 -Wswitch-unreachable -Wunused-result"
 # -Walloc-size-larger-than=1024 -Wvla-larger-than=1024
 ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --enable-gcc-security --enable-cmocka $(SILENT) --with-openldap --enable-asan --enable-rust
+# --disable-perl
  #--enable-profiling
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd $(SILENT) --enable-asan
 else
 # -flto
 ds_cflags = "-march=native -O2 -g3"
-ds_confflags = --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --enable-cmocka $(SILENT) --enable-rust
+ds_confflags = --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --enable-cmocka $(SILENT) --enable-rust --with-openldap
 #--enable-profiling --enable-tcmalloc
 svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd $(SILENT)
 endif
@@ -31,42 +31,27 @@ endif
 all:
 	echo "make ds|nunc-stans|lib389|ds-setup"
 
-builddeps-el7:
-	sudo yum install -y epel-release
-	sudo yum install -y @buildsys-build rpmdevtools git
-	sudo yum install -y --skip-broken \
-		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec lib389/python-lib389.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/" | grep -v pkgversion | sort | uniq|  tr '\n' ' '`
-
-builddeps-fedora:
-	sudo dnf upgrade -y
-	sudo dnf install -y @buildsys-build rpmdevtools git wget
-	sudo dnf builddep --setopt=strict=False -y lib389/python-lib389.spec
-	sudo dnf builddep --setopt=strict=False -y svrcore/svrcore.spec
-	sudo dnf install --setopt=strict=False -y \
-		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in lib389/python-lib389.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | sed 's/%{python3_pkgversion}/3/g' | grep -v "^/" | grep -v pkgversion | sort | uniq | tr '\n' ' '`
+rustup:
 	if [ ! -f ./rustup-init ]; then \
 		wget https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init && \
 		chmod +x ./rustup-init; \
 	fi
 	./rustup-init --default-toolchain nightly -y
+	echo run source ~/.profile
+
+builddeps-el7: rustup
+	sudo yum install -y epel-release
+	sudo yum install -y @buildsys-build rpmdevtools git
+	sudo yum install -y --skip-broken \
+		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/" | grep -v pkgversion | sort | uniq|  tr '\n' ' '`
+
+builddeps-fedora: rustup
+	sudo dnf upgrade -y
+	sudo dnf install -y @buildsys-build rpmdevtools git wget
+	sudo dnf install --setopt=strict=False -y \
+		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | sed 's/%{python3_pkgversion}/3/g' | grep -v "^/" | grep -v pkgversion | sort | uniq | tr '\n' ' '`
 
 clean: ds-clean svrcore-clean srpms-clean rpms-clean
-
-lib389:
-	$(MAKE) -C $(DEVDIR)/lib389/ build PYTHON=$(PYTHON)
-	sudo $(MAKE) -C $(DEVDIR)/lib389/ install PYTHON=$(PYTHON)
-
-lib389-rpmbuild-prep:
-	$(MAKE) -C $(DEVDIR)/lib389/ rpmbuild-prep
-
-lib389-srpms: lib389-rpmbuild-prep
-	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
-	$(MAKE) -C $(DEVDIR)/lib389/ srpm
-	cp $(DEVDIR)/lib389/rpmbuild/SRPMS/python-lib389*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
-
-lib389-rpms: lib389-rpmbuild-prep
-	$(MAKE) -C $(DEVDIR)/lib389/ rpm
-	cp $(DEVDIR)/lib389/rpmbuild/RPMS/noarch/python*-lib389*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
 
 svrcore-configure:
 	cd $(DEVDIR)/svrcore/ && autoreconf -fiv
@@ -90,7 +75,7 @@ svrcore-srpms: svrcore-configure
 	cp $(BUILDDIR)/svrcore/rpmbuild/SRPMS/svrcore*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
 svrcore-rpms-install:
-	sudo yum -y upgrade $(DEVDIR)/rpmbuild/RPMS/x86_64/svrcore*.rpm; true
+	sudo yum -C -y upgrade $(DEVDIR)/rpmbuild/RPMS/x86_64/svrcore*.rpm; true
 
 ds-configure:
 	cd $(DEVDIR)/ds && autoreconf -fiv
@@ -99,8 +84,10 @@ ds-configure:
 
 ds: lib389 svrcore ds-configure
 	$(MAKE) -j8 -C $(BUILDDIR)/ds
+	$(MAKE) -j1 -C $(BUILDDIR)/ds lib389
 	$(MAKE) -j1 -C $(BUILDDIR)/ds check
 	sudo $(MAKE) -j1 -C $(BUILDDIR)/ds install
+	sudo $(MAKE) -j1 -C $(BUILDDIR)/ds lib389-install
 	sudo mkdir -p /opt/dirsrv/etc/sysconfig
 
 ds-rust-clean:
@@ -129,8 +116,8 @@ ds-clean:
 ds-rpms: ds-configure
 	mkdir -p $(BUILDDIR)/ds/rpmbuild/SOURCES/
 	$(MAKE) -C $(BUILDDIR)/ds rpms
-	cp $(BUILDDIR)/ds/rpmbuild/RPMS/x86_64/389-ds-base*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/
-	cp $(BUILDDIR)/ds/rpmbuild/RPMS/noarch/*389-ds-base*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
+	cp $(BUILDDIR)/ds/rpmbuild/RPMS/x86_64/*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/
+	cp $(BUILDDIR)/ds/rpmbuild/RPMS/noarch/*.rpm $(DEVDIR)/rpmbuild/RPMS/noarch/
 	cp $(BUILDDIR)/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
 ds-srpms: ds-configure
@@ -138,29 +125,23 @@ ds-srpms: ds-configure
 	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
 	cp $(BUILDDIR)/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
-ds-setup: lib389
-	sudo python /usr/sbin/dscreate example > /tmp/ds-setup.inf
-	sudo python /usr/sbin/dscreate -v fromfile /tmp/ds-setup.inf --IsolemnlyswearthatIamuptonogood --containerised
-
-ds-setup-py3: lib389
-	sudo python3 /usr/sbin/dscreate example > /tmp/ds-setup.inf
-	sudo python3 /usr/sbin/dscreate -v fromfile /tmp/ds-setup.inf --IsolemnlyswearthatIamuptonogood --containerised
+ds-setup:
+	sudo /usr/sbin/dscreate example > /tmp/ds-setup.inf
+	sudo /usr/sbin/dscreate -v fromfile /tmp/ds-setup.inf --IsolemnlyswearthatIamuptonogood --containerised
 
 ds-setup-pl:
 	sudo /opt/dirsrv/sbin/setup-ds.pl --silent --debug --file=$(DEVDIR)/setup.inf General.FullMachineName=$$(hostname)
 
 ds-run-nightly:
-	sudo py.test -s -v --ignore=ds/dirsrvtests/tests/tickets/ticket47838_test.py ds/dirsrvtests/tests/tickets/ ds/dirsrvtests/tests/suites/
+	sudo py.test -s -v ds/dirsrvtests/tests/tickets/ ds/dirsrvtests/tests/suites/
 
 clone:
 	git clone ssh://git.fedorahosted.org/git/389/ds.git
-	git clone ssh://git.fedorahosted.org/git/389/lib389.git
 	git clone ssh://git@pagure.io/rest389.git
 	git clone ssh://git@pagure.io/svrcore.git
 
 clone-anon:
 	git clone https://git.fedorahosted.org/git/389/ds.git
-	git clone https://git.fedorahosted.org/git/389/lib389.git
 	git clone https://pagure.io/rest389.git
 	git clone https://pagure.io/svrcore.git
 
@@ -173,18 +154,17 @@ pull:
 rpms-clean:
 	cd $(DEVDIR)/rpmbuild/; find . -name '*.rpm' -exec rm '{}' \; ; true
 
-rpms: svrcore-rpms svrcore-rpms-install lib389-rpms ds-rpms
+rpms: svrcore-rpms svrcore-rpms-install ds-rpms
 
 rpms-install:
 	sudo yum install -y $(DEVDIR)/rpmbuild/RPMS/noarch/*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/*.rpm
 
 srpms-clean:
 	rm $(BUILDDIR)/svrcore/rpmbuild/SRPMS/svrcore*.src.rpm; true
-	rm $(BUILDDIR)/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm; true
-	rm $(DEVDIR)/lib389/dist/*; true
+	rm $(BUILDDIR)/ds/rpmbuild/SRPMS/*.src.rpm; true
 	rm $(DEVDIR)/rpmbuild/SRPMS/*; true
 
-srpms: ds-srpms lib389-srpms svrcore-srpms
+srpms: ds-srpms svrcore-srpms
 
 # We need to use the wait version, else the deps aren't ready, and these builds
 # are linked!
@@ -193,12 +173,10 @@ copr:
 	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/svrcore*.src.rpm | head -n 1`
 	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/389-ds-base*.src.rpm | head -n 1`
 	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/ds-rust-plugins*.src.rpm | head -n 1`
-	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-lib389*.src.rpm | head -n 1`
 
 copr-echo:
 	# Upload all the sprms to copr as builds
 	echo copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/svrcore*.src.rpm | head -n 1`
 	echo copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/389-ds-base*.src.rpm | head -n 1`
 	echo copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/ds-rust-plugins*.src.rpm | head -n 1`
-	echo copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/python-lib389*.src.rpm | head -n 1`
 
