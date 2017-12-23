@@ -83,10 +83,7 @@ ds-configure:
 
 ds: svrcore ds-configure
 	PATH="~/.cargo/bin:$$PATH" $(MAKE) -j8 -C $(BUILDDIR)/ds
-	$(MAKE) -j1 -C $(BUILDDIR)/ds lib389
-	PATH="~/.cargo/bin:$$PATH" $(MAKE) -j1 -C $(BUILDDIR)/ds check
 	sudo PATH="~/.cargo/bin:$$PATH" $(MAKE) -j1 -C $(BUILDDIR)/ds install
-	sudo $(MAKE) -j1 -C $(BUILDDIR)/ds lib389-install
 	sudo mkdir -p /opt/dirsrv/etc/sysconfig
 
 ds-rust-clean:
