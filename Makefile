@@ -15,15 +15,11 @@ PKG_CONFIG_PATH ?= /opt/dirsrv/lib/pkgconfig:/usr/local/lib/pkgconfig/
 ifeq ($(ASAN), true)
 ds_cflags = "-march=native -O0 -Wall -Wextra -Wunused -Wmaybe-uninitialized -Wno-sign-compare -Wstrict-overflow -fno-strict-aliasing -Wunused-but-set-variable -Walloc-zero -Walloca -Walloca-larger-than=512 -Wbool-operation -Wbuiltin-declaration-mismatch -Wdangling-else -Wduplicate-decl-specifier -Wduplicated-branches -Wexpansion-to-defined -Wformat -Wformat-overflow=2 -Wformat-truncation=2 -Wimplicit-fallthrough=2 -Wint-in-bool-context -Wmemset-elt-size -Wpointer-compare -Wrestrict -Wshadow-compatible-local -Wshadow-local -Wshadow=compatible-local -Wshadow=global -Wshadow=local -Wstringop-overflow=4 -Wswitch-unreachable -Wunused-result"
 # -Walloc-size-larger-than=1024 -Wvla-larger-than=1024
-ds_confflags = --enable-debug --with-svrcore=/opt/dirsrv --enable-cmocka $(SILENT) --with-openldap --enable-asan --disable-perl --enable-rust
- #--enable-profiling
-svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd $(SILENT) --enable-asan
+ds_confflags = --enable-debug --enable-cmocka $(SILENT) --with-openldap --enable-asan --disable-perl --enable-rust
 else
 # -flto
 ds_cflags = "-march=native -O2 -g3"
-ds_confflags = --with-svrcore=/opt/dirsrv --prefix=/opt/dirsrv --enable-gcc-security --enable-cmocka $(SILENT) --enable-rust --with-openldap
-#--enable-profiling --enable-tcmalloc
-svrcore_cflags = --prefix=/opt/dirsrv --enable-debug --with-systemd $(SILENT)
+ds_confflags = --prefix=/opt/dirsrv --enable-gcc-security --enable-cmocka $(SILENT) --enable-rust --with-openldap
 endif
 
 all:
@@ -33,7 +29,7 @@ builddeps-el7:
 	sudo yum install -y epel-release
 	sudo yum install -y @buildsys-build rpmdevtools git
 	sudo yum install -y --skip-broken \
-		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in svrcore/svrcore.spec | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/" | grep -v pkgversion | sort | uniq|  tr '\n' ' '`
+		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/" | grep -v pkgversion | sort | uniq|  tr '\n' ' '`
 
 builddeps-fedora:
 	sudo dnf upgrade -y
@@ -42,38 +38,14 @@ builddeps-fedora:
 	sudo dnf install --setopt=strict=False -y \
 		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | sed 's/%{python3_pkgversion}/3/g' | grep -v "^/" | grep -v pkgversion | sort | uniq | tr '\n' ' '`
 
-clean: ds-clean svrcore-clean srpms-clean rpms-clean
-
-svrcore-configure:
-	cd $(DEVDIR)/svrcore/ && autoreconf -fiv
-	mkdir -p $(BUILDDIR)/svrcore
-	cd $(BUILDDIR)/svrcore && $(DEVDIR)/svrcore/configure $(svrcore_cflags)
-
-svrcore: svrcore-configure
-	$(MAKE) -C $(BUILDDIR)/svrcore
-	sudo $(MAKE) -C $(BUILDDIR)/svrcore install
-
-svrcore-clean:
-	$(MAKE) -C $(BUILDDIR)/svrcore clean; true
-
-svrcore-rpms: svrcore-configure
-	$(MAKE) -C $(BUILDDIR)/svrcore rpms
-	cp $(BUILDDIR)/svrcore/rpmbuild/RPMS/x86_64/svrcore*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/
-
-svrcore-srpms: svrcore-configure
-	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
-	$(MAKE) -C $(BUILDDIR)/svrcore srpm
-	cp $(BUILDDIR)/svrcore/rpmbuild/SRPMS/svrcore*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
-
-svrcore-rpms-install:
-	sudo yum -C -y upgrade $(DEVDIR)/rpmbuild/RPMS/x86_64/svrcore*.rpm; true
+clean: ds-clean srpms-clean rpms-clean
 
 ds-configure:
 	cd $(DEVDIR)/ds && autoreconf -fiv
 	mkdir -p $(BUILDDIR)/ds/
 	cd $(BUILDDIR)/ds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/ds/configure $(ds_confflags)
 
-ds: svrcore ds-configure
+ds: ds-configure
 	PATH="~/.cargo/bin:$$PATH" $(MAKE) -j8 -C $(BUILDDIR)/ds
 	$(MAKE) -j1 -C $(BUILDDIR)/ds lib389
 	PATH="~/.cargo/bin:$$PATH" $(MAKE) -j1 -C $(BUILDDIR)/ds check
@@ -148,42 +120,34 @@ ipa-uninstall:
 
 clone:
 	git clone ssh://git.fedorahosted.org/git/389/ds.git
-	git clone ssh://git@pagure.io/svrcore.git
 
 clone-anon:
 	git clone https://git.fedorahosted.org/git/389/ds.git
-	git clone https://pagure.io/svrcore.git
 
 pull:
 	cd ds; git pull
-	cd svrcore; git pull
 
 rpms-clean:
 	cd $(DEVDIR)/rpmbuild/; find . -name '*.rpm' -exec rm '{}' \; ; true
 
-rpms: svrcore-rpms svrcore-rpms-install ds-rpms
+rpms: ds-rpms
 
 rpms-install:
 	sudo yum install -y $(DEVDIR)/rpmbuild/RPMS/noarch/*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/*.rpm
 
 srpms-clean:
-	rm $(BUILDDIR)/svrcore/rpmbuild/SRPMS/svrcore*.src.rpm; true
 	rm $(BUILDDIR)/ds/rpmbuild/SRPMS/*.src.rpm; true
 	rm $(DEVDIR)/rpmbuild/SRPMS/*; true
 
-srpms: ds-srpms svrcore-srpms
+srpms: ds-srpms
 
 # We need to use the wait version, else the deps aren't ready, and these builds
 # are linked!
 copr:
 	# Upload all the sprms to copr as builds
-	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/svrcore*.src.rpm | head -n 1`
 	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/389-ds-base*.src.rpm | head -n 1`
-	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/ds-rust-plugins*.src.rpm | head -n 1`
 
 copr-echo:
 	# Upload all the sprms to copr as builds
-	echo copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/svrcore*.src.rpm | head -n 1`
 	echo copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/389-ds-base*.src.rpm | head -n 1`
-	echo copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/ds-rust-plugins*.src.rpm | head -n 1`
 
