@@ -25,19 +25,6 @@ endif
 all:
 	echo "make ds|nunc-stans|lib389|ds-setup"
 
-builddeps-el7:
-	sudo yum install -y epel-release
-	sudo yum install -y @buildsys-build rpmdevtools git
-	sudo yum install -y --skip-broken \
-		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | grep -v "^/" | grep -v pkgversion | sort | uniq|  tr '\n' ' '`
-
-builddeps-fedora:
-	sudo dnf upgrade -y
-	sudo dnf install -y @buildsys-build rpmdevtools git wget
-	sudo dnf install -y ldapvi vim gdb
-	sudo dnf install --setopt=strict=False -y \
-		`grep -E "^(Build)?Requires" ds/rpm/389-ds-base.spec.in | grep -v -E '(name|MODULE)' | awk '{ print $$2 }' | sed 's/%{python3_pkgversion}/3/g' | grep -v "^/" | grep -v pkgversion | sort | uniq | tr '\n' ' '`
-
 clean: ds-clean srpms-clean rpms-clean
 
 ds-configure:
@@ -46,12 +33,19 @@ ds-configure:
 	cd $(BUILDDIR)/ds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/ds/configure $(ds_confflags)
 
 ds: ds-configure
-	PATH="~/.cargo/bin:$$PATH" $(MAKE) -j8 -C $(BUILDDIR)/ds
+	PATH="~/.cargo/bin:$$PATH" $(MAKE) -j12 -C $(BUILDDIR)/ds
 	$(MAKE) -j1 -C $(BUILDDIR)/ds lib389
 	PATH="~/.cargo/bin:$$PATH" $(MAKE) -j1 -C $(BUILDDIR)/ds check
 	sudo PATH="~/.cargo/bin:$$PATH" $(MAKE) -j1 -C $(BUILDDIR)/ds install
 	sudo $(MAKE) -j1 -C $(BUILDDIR)/ds lib389-install
 	sudo mkdir -p /opt/dirsrv/etc/sysconfig
+	sudo mkdir -p /opt/dirsrv/etc/dirsrv
+	sudo chown -R dirsrv: /opt/dirsrv/etc
+	sudo mkdir -p /opt/dirsrv/var/lib/dirsrv/
+	sudo mkdir -p /opt/dirsrv/var/lock/dirsrv/
+	sudo mkdir -p /opt/dirsrv/var/log/dirsrv/
+	sudo mkdir -p /opt/dirsrv/var/run/dirsrv/
+	sudo chown -R dirsrv: /opt/dirsrv/var/
 
 ds-rust-clean:
 	$(MAKE) -C $(BUILDDIR)/ds_rust clean; true
@@ -91,14 +85,17 @@ ds-srpms: ds-configure
 	cp $(BUILDDIR)/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
 
 ds-setup:
-	sudo /usr/sbin/dscreate example > /tmp/ds-setup.inf
-	sudo /usr/sbin/dscreate -v fromfile /tmp/ds-setup.inf --IsolemnlyswearthatIamuptonogood --containerised
+	/usr/sbin/dscreate create-template --containerized > /tmp/ds-setup.inf
+	/usr/sbin/dscreate -v from-file /tmp/ds-setup.inf --containerized
 
 ds-setup-pl:
 	sudo /opt/dirsrv/sbin/setup-ds.pl --silent --debug --file=$(DEVDIR)/setup.inf General.FullMachineName=$$(hostname)
 
+ds-run-basic:
+	sudo -u dirsrv DEBUGGING=True py.test -x -s -v ds/dirsrvtests/tests/suites/basic/
+
 ds-run-nightly:
-	sudo py.test -s -v ds/dirsrvtests/tests/tickets/ ds/dirsrvtests/tests/suites/
+	sudo -u dirsrv py.test -x -s -v ds/dirsrvtests/tests/tickets/ ds/dirsrvtests/tests/suites/
 
 ipa-builddeps-fedora: builddeps-fedora
 	sudo dnf copr enable -y @freeipa/freeipa-master
