@@ -25,17 +25,26 @@ endif
 all:
 	echo "make ds|nunc-stans|lib389|ds-setup"
 
-clean: ds-clean srpms-clean rpms-clean
+clean: ds-clean
 
 ds-configure:
 	cd $(DEVDIR)/ds && autoreconf -fiv
 	mkdir -p $(BUILDDIR)/ds/
 	cd $(BUILDDIR)/ds/ && CFLAGS=$(ds_cflags) $(DEVDIR)/ds/configure $(ds_confflags)
 
-ds: ds-configure
+ds-python: ds-configure
+	$(MAKE) -j1 -C $(BUILDDIR)/ds lib389
+	sudo $(MAKE) -j1 -C $(BUILDDIR)/ds lib389-install
+
+ds-build: ds-configure
 	PATH="~/.cargo/bin:$$PATH" $(MAKE) -j12 -C $(BUILDDIR)/ds
 	$(MAKE) -j1 -C $(BUILDDIR)/ds lib389
-	PATH="~/.cargo/bin:$$PATH" $(MAKE) -j1 -C $(BUILDDIR)/ds check
+
+ds-test: ds-build
+	echo PATH="~/.cargo/bin:$$PATH" $(MAKE) -j1 -C $(BUILDDIR)/ds check
+	sudo PATH="~/.cargo/bin:$$PATH" $(MAKE) -j1 -C $(BUILDDIR)/ds check
+
+ds: ds-test
 	sudo PATH="~/.cargo/bin:$$PATH" $(MAKE) -j1 -C $(BUILDDIR)/ds install
 	sudo $(MAKE) -j1 -C $(BUILDDIR)/ds lib389-install
 	sudo mkdir -p /opt/dirsrv/etc/sysconfig
@@ -59,92 +68,36 @@ ds-rust: ds-rust-configure
 	$(MAKE) -C $(BUILDDIR)/ds_rust
 	sudo $(MAKE) -C $(BUILDDIR)/ds_rust install
 
-ds-rust-srpms: ds-rust-configure
-	$(MAKE) -C $(BUILDDIR)/ds_rust srpms
-	cp $(BUILDDIR)/ds_rust/rpmbuild/SRPMS/*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
-
-ds-rust-rpms: ds-rust-configure
-	$(MAKE) -C $(BUILDDIR)/ds_rust rpms
-	cp $(BUILDDIR)/ds_rust/rpmbuild/RPMS/x86_64/ds-rust* $(DEVDIR)/rpmbuild/RPMS/x86_64/
-
 ds-clean:
 	$(MAKE) -C $(BUILDDIR)/ds clean; true
 
-ds-rpms: ds-configure
-	mkdir -p $(BUILDDIR)/ds/rpmbuild/SOURCES/
-	rm $(BUILDDIR)/ds/rpmbuild/RPMS/*/*.rpm; true
-	$(MAKE) -C $(BUILDDIR)/ds rpms
-	rm $(DEVDIR)/rpmbuild/RPMS/*.rpm; true
-	cp $(BUILDDIR)/ds/rpmbuild/RPMS/x86_64/*.rpm $(DEVDIR)/rpmbuild/RPMS/
-	cp $(BUILDDIR)/ds/rpmbuild/RPMS/noarch/*.rpm $(DEVDIR)/rpmbuild/RPMS/
-	cp $(BUILDDIR)/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
-
-ds-srpms: ds-configure
-	$(MAKE) -C $(BUILDDIR)/ds srpm
-	mkdir -p $(DEVDIR)/rpmbuild/SRPMS/
-	cp $(BUILDDIR)/ds/rpmbuild/SRPMS/389-ds-base*.src.rpm $(DEVDIR)/rpmbuild/SRPMS/
-
 ds-setup:
-	/usr/sbin/dscreate create-template --containerized > /tmp/ds-setup.inf
-	/usr/sbin/dscreate -v from-file /tmp/ds-setup.inf --containerized
+	sudo -u dirsrv /usr/sbin/dscreate create-template --containerized > /tmp/ds-setup.inf
+	sudo -u dirsrv /usr/sbin/dscreate -v from-file /tmp/ds-setup.inf --containerized
 
-ds-setup-pl:
-	sudo /opt/dirsrv/sbin/setup-ds.pl --silent --debug --file=$(DEVDIR)/setup.inf General.FullMachineName=$$(hostname)
+ds-container-reset:
+	sudo rm -r /data; true
+	sudo rm -r /logs; true
+	sudo rm /opt/dirsrv/etc/sysconfig/dirsrv-localhost; true
+	sudo rm /opt/dirsrv/var/run/dirsrv/slapd-localhost.pid; true
 
-ds-run-basic:
-	sudo -u dirsrv DEBUGGING=True py.test -x -s -v ds/dirsrvtests/tests/suites/basic/
+ds-container-prep:
+	sudo mkdir -p /data/
+	sudo rm -f /opt/dirsrv/etc/dirsrv/slapd-localhost /opt/dirsrv/etc/dirsrv/ssca
+	sudo ln -s /data/config /opt/dirsrv/etc/dirsrv/slapd-localhost
+	sudo ln -s /data/ssca /opt/dirsrv/etc/dirsrv/ssca
+	sudo chown -R dirsrv: /data
+
+	# sudo ln -s /data/db /opt/dirsrv/var/lib/dirsrv/slapd-localhost
+	# sudo ln -s /logs /opt/dirsrv/var/log/dirsrv/slapd-localhost
+
+ds-container: ds-container-prep
+	sudo -u dirsrv /usr/sbin/dscontainer -r
+
+# DEBUGSETUP=True
+ds-run-test:
+	sudo -u dirsrv DEBUGGING=True py.test $(TEST_OPT) -s -v ds/dirsrvtests/tests/$(TEST)
 
 ds-run-nightly:
 	sudo -u dirsrv py.test -x -s -v ds/dirsrvtests/tests/tickets/ ds/dirsrvtests/tests/suites/
-
-ipa-builddeps-fedora: builddeps-fedora
-	sudo dnf copr enable -y @freeipa/freeipa-master
-	sudo dnf builddep -y -b -D "with_lint 1" --spec freeipa/freeipa.spec.in
-
-ipa-build:
-	rm -r freeipa/dist/rpms; true
-	cd freeipa; ./makerpms.sh
-	sudo dnf install -y freeipa/dist/rpms/*.rpm
-
-ipa-install:
-	sudo ipa-server-install -p password -a password -n example.com -r EXAMPLE.COM --hostname=ldapkdc.example.com -U -v -d --no-host-dns
-
-ipa-clean:
-	rm freeipa/dist/rpms/*.rpm
-
-ipa-uninstall:
-	sudo ipa-server-install -v -d --uninstall -U
-
-clone:
-	git clone ssh://git.fedorahosted.org/git/389/ds.git
-
-clone-anon:
-	git clone https://git.fedorahosted.org/git/389/ds.git
-
-pull:
-	cd ds; git pull
-
-rpms-clean:
-	cd $(DEVDIR)/rpmbuild/; find . -name '*.rpm' -exec rm '{}' \; ; true
-
-rpms: ds-rpms
-
-rpms-install:
-	sudo yum install -y $(DEVDIR)/rpmbuild/RPMS/noarch/*.rpm $(DEVDIR)/rpmbuild/RPMS/x86_64/*.rpm
-
-srpms-clean:
-	rm $(BUILDDIR)/ds/rpmbuild/SRPMS/*.src.rpm; true
-	rm $(DEVDIR)/rpmbuild/SRPMS/*; true
-
-srpms: ds-srpms
-
-# We need to use the wait version, else the deps aren't ready, and these builds
-# are linked!
-copr:
-	# Upload all the sprms to copr as builds
-	copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/389-ds-base*.src.rpm | head -n 1`
-
-copr-echo:
-	# Upload all the sprms to copr as builds
-	echo copr-cli build ds `ls -1t $(DEVDIR)/rpmbuild/SRPMS/389-ds-base*.src.rpm | head -n 1`
 
